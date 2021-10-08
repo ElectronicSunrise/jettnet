@@ -68,7 +68,7 @@ namespace jettnet
 
         private void DataRecv(int connId, ArraySegment<byte> segment)
         {
-            using(JettReader reader = new JettReader(segment.Offset, segment))
+            using(PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
             {
                 var msgId = (Messages)reader.ReadByte();
 

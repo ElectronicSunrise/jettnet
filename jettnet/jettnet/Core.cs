@@ -1,4 +1,8 @@
-﻿using System;
+﻿using Microsoft.Extensions.ObjectPool;
+using System;
+using System.Buffers;
+
+// pool pattern derived from mirror networking's pooled writers/readers
 
 namespace jettnet
 {
@@ -12,45 +16,87 @@ namespace jettnet
     {
         WorldUpdate = 0,
         Ping = 1,
-        Pong = 2
+        Pong = 2,
+        JoinRoom = 3
     }
 
     public interface IJettMessage
     {
         public ArraySegment<byte> Serialize(JettWriter writer);
+
+        public IJettMessage Deserialize(JettReader reader);
     }
 
-    public class JettWriter : IDisposable
+    public sealed class JettWriterPool
     {
-        public byte[] Buffer = new byte[1200];
-        public int Position = 0;
+        private static ObjectPool<PooledJettWriter> _writers;
 
-        public void Dispose()
+        public static PooledJettWriter Get()
         {
-            GC.SuppressFinalize(this);
+            if(_writers == null)
+                _writers = ObjectPool.Create<PooledJettWriter>();
+
+            var writer = _writers.Get();
+            writer.Position = 0;
+
+            return writer;
+        }
+
+        public static void Return(PooledJettWriter jettWriter)
+        {
+            _writers.Return(jettWriter);
         }
     }
 
-    public class JettReader : IDisposable
+    public sealed class JettReaderPool
+    {
+        private static ObjectPool<PooledJettReader> _readers;
+
+        public static PooledJettReader Get(int pos, ArraySegment<byte> data)
+        {
+            if(_readers == null)
+                _readers = ObjectPool.Create<PooledJettReader>();
+
+            var reader = _readers.Get();
+
+            reader.Position = pos;
+            reader.Buffer = data;
+
+            return reader;
+        }
+
+        public static void Return(PooledJettReader jettReader)
+        {
+            _readers.Return(jettReader);
+        }
+    }
+
+    public sealed class PooledJettWriter : JettWriter, IDisposable
+    {
+        public void Dispose()
+        {
+            JettWriterPool.Return(this);
+        }
+    }
+
+    public sealed class PooledJettReader : JettReader, IDisposable
+    {
+        public void Dispose()
+        {
+            JettReaderPool.Return(this);
+        }
+    }
+
+    public class JettWriter
+    {
+        public ArraySegment<byte> Buffer = new ArraySegment<byte>(new byte[1200]);
+        public int Position = 0;
+    }
+
+    public class JettReader
     {
         public ArraySegment<byte> Buffer;
         public int Position = 0;
-
-        public JettReader() 
-        {
-            Buffer = new ArraySegment<byte>(new byte[1200]);
-        }
-
-        public JettReader(int pos, ArraySegment<byte> data)
-        {
-            Buffer = data;
-            Position = pos;
-        }
-
-        public void Dispose()
-        {
-            GC.SuppressFinalize(this);
-        }
     }
 
     public static class JettReadWriteExtensions
@@ -72,7 +118,7 @@ namespace jettnet
         {
             unsafe
             {
-                fixed (byte* dataPtr = &writer.Buffer[writer.Position])
+                fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
                     bool* valuePtr = (bool*)dataPtr;
                     *valuePtr = value;
@@ -140,7 +186,7 @@ namespace jettnet
         {
             unsafe
             {
-                fixed (byte* dataPtr = &writer.Buffer[writer.Position])
+                fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
                     char* valuePtr = (char*)dataPtr;
                     *valuePtr = value;
@@ -160,7 +206,7 @@ namespace jettnet
         {
             unsafe
             {
-                fixed (byte* dataPtr = &writer.Buffer[writer.Position])
+                fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
                     int* valuePtr = (int*)dataPtr;
                     *valuePtr = value;
