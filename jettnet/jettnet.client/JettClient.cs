@@ -10,17 +10,34 @@ namespace jettnet
         private Socket _socket;
         private Logger _logger;
 
+        private JettMessenger _messenger;
+
         public bool Connected = false;
+
+        public Action OnConnect;
+        public Action OnDisconnect;
 
         public JettClient(Socket socket = null, Logger logger = null)
         {
             _logger = logger ?? new Logger();
             _socket = socket ?? new KcpSocket();
+
+            _messenger = new JettMessenger(_socket, _logger, false);
         }
 
         public void Connect(string address, ushort port)
         {
             new Thread(() => ConnectInternal(address, port)).Start();
+        }
+
+        public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
+        {
+            _messenger.SendToServer(msg, channel);
+        }
+
+        public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
+        {
+            _messenger.RegisterInternal(msgHandler);
         }
 
         private void ConnectInternal(string address, ushort port)
@@ -38,11 +55,6 @@ namespace jettnet
             }
         }
 
-        public void Send(ArraySegment<byte> data, int channel)
-        {
-            _socket.ClientSend(data, channel);
-        }
-
         public void Disconnect()
         {
             _socket.StopClient();
@@ -52,12 +64,14 @@ namespace jettnet
         {
             _logger.Log("We connected to a server!");
             Connected = true;
+            OnConnect?.Invoke();
         }
 
         private void ClientDisconnected()
         {
             _logger.Log("We disconnected from a server");
             Connected = false;
+            OnDisconnect?.Invoke();
         }
 
         private void DataRecv(ArraySegment<byte> segment)
@@ -68,13 +82,8 @@ namespace jettnet
 
                 switch (msgId)
                 {
-                    case Messages.WorldUpdate:
-                        break;
-                    case Messages.Ping:
-                        _logger.Log("ping");
-                        break;
-                    case Messages.Pong:
-                        _logger.Log("pong");
+                    case Messages.Message:
+                        _messenger.HandleIncomingMessage(reader);
                         break;
                 }
             }

@@ -17,22 +17,8 @@ namespace jettnet
         WorldUpdate = 0,
         Ping = 1,
         Pong = 2,
-        JoinRoom = 3
-    }
-
-    public struct MessageTest : IJettMessage<MessageTest>
-    {
-        public string Username;
-
-        public MessageTest Deserialize(JettReader reader)
-        {
-            return new MessageTest { Username = reader.ReadString() };
-        }
-
-        public void Serialize(JettWriter writer)
-        {
-            writer.WriteString(Username);
-        }
+        JoinRoom = 3,
+        Message = 4
     }
 
     public interface IJettMessage<T> : IJettMessage where T : struct

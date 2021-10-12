@@ -68,11 +68,6 @@ namespace jettnet.sockets
                     _server?.Send(connId, data, KcpChannel.Unreliable);
                     break;
 
-                    // for testing, send to first client
-                case -1:
-                    _server?.Send(_server.connections.FirstOrDefault().Key, data, KcpChannel.Reliable);
-                    break;
-
                 default:
                     _server?.Send(connId, data, KcpChannel.Reliable);
                     break;

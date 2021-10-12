@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using jettnet.logging;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using jettnet.sockets;
 
 namespace jettnet
@@ -16,18 +12,35 @@ namespace jettnet
         private JettMessenger _messenger;
         private ushort _port;
 
+        public Action<int> ClientConnectedToServer;
+        public Action<int> ClientDisconnectedFromServer;
+
+        public bool Active = false;
+
         public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null)
         {
             _socket = socket ?? new KcpSocket();
             _logger = logger ?? new Logger();
             _port = port;
 
-            _messenger = new JettMessenger(_socket, _logger);
+            _messenger = new JettMessenger(_socket, _logger, true);
         }
 
         public void Start()
         {
             new Thread(() => StartInternal()).Start();
+            Active = true;
+        }
+
+        public void Stop()
+        {
+            _socket.StopServer();
+            Active = false;
+        }
+
+        public void Send(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
+        {
+            _messenger.SendToClient(msg, connectionId, channel);
         }
 
         public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
@@ -43,27 +56,28 @@ namespace jettnet
         private void StartInternal()
         {
             _socket.ServerDataRecv = DataRecv;
-            _socket.ServerConnected = ClientConnectedToServer;
-            _socket.ServerDisconnected = ClientDisconnectedFromServer;
+            _socket.ServerConnected = ServerConnected;
+            _socket.ServerDisconnected = ServerDisconnected;
 
             _socket.StartServer(_port);
 
             while (true)
             {
                 _socket.FetchIncoming();
-
                 _socket.SendOutgoing();
             }
         }
 
-        private void ClientConnectedToServer(int connId)
+        private void ServerConnected(int connId)
         {
             _logger.Log("Client connected : " + connId);
+            ClientConnectedToServer?.Invoke(connId);
         }
 
-        private void ClientDisconnectedFromServer(int connId)
+        private void ServerDisconnected(int connId)
         {
             _logger.Log("Client disconnected : " + connId);
+            ClientDisconnectedFromServer?.Invoke(connId);
         }
 
         private void DataRecv(int connId, ArraySegment<byte> segment)
@@ -74,13 +88,8 @@ namespace jettnet
 
                 switch (msgId)
                 {
-                    case Messages.WorldUpdate:
-                        break;
-                    case Messages.Ping:
-                        _logger.Log("ping");
-                        break;
-                    case Messages.Pong:
-                        _logger.Log("pong");
+                    case Messages.Message:
+                        _messenger.HandleIncomingMessage(reader);
                         break;
                 }
             }

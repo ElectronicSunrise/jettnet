@@ -9,7 +9,7 @@ namespace jettnet
 {
     public class JettMessenger
     {
-        private Dictionary<short, Action<JettReader>> _messageHandlers = new Dictionary<short, Action<JettReader>>();
+        private Dictionary<int, Action<JettReader>> _messageHandlers = new Dictionary<int, Action<JettReader>>();
         private Dictionary<Type, IJettMessage> _messageReaders;
 
         private Queue<IJettMessage> _pendingMessages = new Queue<IJettMessage>();
@@ -19,11 +19,39 @@ namespace jettnet
         private Socket _socket;
         private Logger _logger;
 
-        public JettMessenger(Socket socket, Logger logger) 
+        private bool _isServer;
+
+        public JettMessenger(Socket socket, Logger logger, bool serverMessenger) 
         {
             _messageReaders = GetReadersAndWritersForMessages();
             _socket = socket;
             _logger = logger;
+
+            _isServer = serverMessenger;
+        }
+
+        public void SendToClient(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
+        {
+            using (PooledJettWriter writer = JettWriterPool.Get())
+            {
+                writer.WriteByte((byte)Messages.Message);
+                writer.WriteInt(GetMessageId(nameof(msg)));
+
+                msg.Serialize(writer);
+                _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connectionId, channel);
+            }
+        }
+
+        public void SendToServer(IJettMessage msg, int channel = JettChannels.Reliable)
+        {
+            using (PooledJettWriter writer = JettWriterPool.Get())
+            {
+                writer.WriteByte((byte)Messages.Message);
+                writer.WriteInt(GetMessageId(nameof(msg)));
+
+                msg.Serialize(writer);
+                _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
+            }
         }
 
         private static Dictionary<Type, IJettMessage> GetReadersAndWritersForMessages()
@@ -52,7 +80,7 @@ namespace jettnet
 
         public void RegisterInternal<T>(Action<T> handler) where T : struct, IJettMessage
         {
-            short id = GetMessageId(nameof(T));
+            int id = GetMessageId(nameof(T));
 
             _messageHandlers[id] = CreateMessageDelegate(handler);
         }
@@ -78,10 +106,17 @@ namespace jettnet
             return del;
         }
 
-        private short GetMessageId(string funcName)
+        public void HandleIncomingMessage(JettReader reader)
+        {
+            int messageId = reader.ReadInt();
+
+            _messageHandlers[messageId].Invoke(reader);
+        }
+
+        private int GetMessageId(string funcName)
         { 
             var result = _crypto.ComputeHash(Encoding.UTF8.GetBytes(funcName));
-            return BitConverter.ToInt16(result, 0);
+            return BitConverter.ToInt32(result, 0);
         }
     }
 }
