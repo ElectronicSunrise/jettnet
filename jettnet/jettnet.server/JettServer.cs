@@ -22,7 +22,7 @@ namespace jettnet
             _logger = logger ?? new Logger();
             _port = port;
 
-            _messenger = new JettMessenger(_socket);
+            _messenger = new JettMessenger(_socket, _logger);
         }
 
         public void Start()
@@ -30,9 +30,9 @@ namespace jettnet
             new Thread(() => StartInternal()).Start();
         }
 
-        public void Register<T>(Action<IJettMessage> msgHandler) where T : struct, IJettMessage
+        public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
         {
-            _messenger.RegisterInternal<T>(msgHandler);
+            _messenger.RegisterInternal(msgHandler);
         }
 
         public void SendTo(ArraySegment<byte> data, int channel, int connId)

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.ObjectPool;
 using System;
-using System.Buffers;
+using System.Collections.Generic;
 
 // pool pattern derived from mirror networking's pooled writers/readers
 
@@ -20,11 +20,29 @@ namespace jettnet
         JoinRoom = 3
     }
 
-    public interface IJettMessage
+    public struct MessageTest : IJettMessage<MessageTest>
     {
-        public ArraySegment<byte> Serialize(JettWriter writer);
+        public string Username;
 
-        public IJettMessage Deserialize(JettReader reader);
+        public MessageTest Deserialize(JettReader reader)
+        {
+            return new MessageTest { Username = reader.ReadString() };
+        }
+
+        public void Serialize(JettWriter writer)
+        {
+            writer.WriteString(Username);
+        }
+    }
+
+    public interface IJettMessage<T> : IJettMessage where T : struct
+    {
+        public T Deserialize(JettReader reader);
+    }
+    
+    public interface IJettMessage 
+    {
+        public void Serialize(JettWriter writer);
     }
 
     public sealed class JettWriterPool

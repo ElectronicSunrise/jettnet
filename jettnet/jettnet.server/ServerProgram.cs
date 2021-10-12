@@ -15,6 +15,8 @@ namespace jettnet.server
 
             server.Start();
 
+            server.RegisterMessage<MessageTest>((msg) => Console.WriteLine(msg.Username));
+
             while (true)
             {
                 var msg = Console.ReadLine();
