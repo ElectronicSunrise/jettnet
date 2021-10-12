@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.ObjectPool;
-using System;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 // pool pattern derived from mirror networking's pooled writers/readers
@@ -21,6 +21,23 @@ namespace jettnet
         Message = 4
     }
 
+    // https://docs.microsoft.com/en-us/dotnet/standard/collections/thread-safe/how-to-create-an-object-pool
+    public class ObjectPool<T>
+    {
+        private readonly ConcurrentBag<T> _objects;
+        private readonly Func<T> _objectGenerator;
+
+        public ObjectPool(Func<T> objectGenerator)
+        {
+            _objectGenerator = objectGenerator ?? throw new ArgumentNullException(nameof(objectGenerator));
+            _objects = new ConcurrentBag<T>();
+        }
+
+        public T Get() => _objects.TryTake(out T item) ? item : _objectGenerator();
+
+        public void Return(T item) => _objects.Add(item);
+    }
+
     public interface IJettMessage<T> : IJettMessage where T : struct
     {
         public T Deserialize(JettReader reader);
@@ -37,8 +54,8 @@ namespace jettnet
 
         public static PooledJettWriter Get()
         {
-            if(_writers == null)
-                _writers = ObjectPool.Create<PooledJettWriter>();
+            if (_writers == null)
+                _writers = new ObjectPool<PooledJettWriter>(() => new PooledJettWriter());
 
             var writer = _writers.Get();
             writer.Position = 0;
@@ -58,8 +75,8 @@ namespace jettnet
 
         public static PooledJettReader Get(int pos, ArraySegment<byte> data)
         {
-            if(_readers == null)
-                _readers = ObjectPool.Create<PooledJettReader>();
+            if (_readers == null)
+                _readers = new ObjectPool<PooledJettReader>(() => new PooledJettReader());
 
             var reader = _readers.Get();
 
@@ -107,13 +124,13 @@ namespace jettnet
     {
         public static void WriteByte(this JettWriter writer, byte value)
         {
-            writer.Buffer[writer.Position] = value;
+            writer.Buffer.Array[writer.Position] = value;
             writer.Position += 1;
         }
 
         public static byte ReadByte(this JettReader reader)
         {
-            byte value = reader.Buffer[reader.Position];
+            byte value = reader.Buffer.Array[reader.Position];
             reader.Position += 1;
             return value;
         }
