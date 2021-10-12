@@ -1,6 +1,5 @@
 ﻿using kcp2k;
 using System;
-using System.Linq;
 
 namespace jettnet.sockets
 {
