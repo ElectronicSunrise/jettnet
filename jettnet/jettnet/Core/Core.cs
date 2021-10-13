@@ -47,12 +47,12 @@ namespace jettnet
 
     public interface IJettMessage<T> : IJettMessage where T : struct
     {
-        public T Deserialize(JettReader reader);
+        T Deserialize(JettReader reader);
     }
     
     public interface IJettMessage 
     {
-        public void Serialize(JettWriter writer);
+        void Serialize(JettWriter writer);
     }
 
     public sealed class JettWriterPool

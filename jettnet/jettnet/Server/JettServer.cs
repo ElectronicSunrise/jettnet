@@ -73,10 +73,14 @@ namespace jettnet
         private void ServerConnected(ConnectionData data)
         {
             _logger.Log("Client connected : " + data.ClientId);
-            ClientConnectedToServer?.Invoke(data);
 
-            if (!AllowMultipleConnectionsOneAddress)
+            if (!AllowMultipleConnectionsOneAddress && _socket.AddressExists(data.Address))
+            {
                 _socket.DisconnectClient(data.ClientId);
+                return;
+            }
+
+            ClientConnectedToServer?.Invoke(data);
         }
 
         private void ServerDisconnected(ConnectionData data)
@@ -99,5 +103,13 @@ namespace jettnet
                 }
             }
         }
+
+#if UNITY_64
+        // unity keeps sockets open even when editor is done playing
+        private void OnApplicationQuit() 
+        {
+            _socket.StopServer();
+        }
+#endif
     }
 }

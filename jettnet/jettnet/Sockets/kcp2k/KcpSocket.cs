@@ -10,7 +10,8 @@ namespace jettnet.sockets
         private KcpServer _server;
         private KcpClient _client;
 
-        private Dictionary<int, ConnectionData> _connections = new Dictionary<int, ConnectionData>();
+        private Dictionary<int, ConnectionData> _connectionsByID = new Dictionary<int, ConnectionData>();
+        private Dictionary<string, ConnectionData> _connectionsByAddress = new Dictionary<string, ConnectionData>();
 
         public override void StartClient(string address, ushort port)
         {
@@ -31,6 +32,11 @@ namespace jettnet.sockets
             _server.Start(port);
         }
 
+        public override bool AddressExists(string addr)
+        {
+            return _connectionsByAddress.ContainsKey(addr);
+        }
+
         public override void DisconnectClient(int id)
         {
             _server?.Disconnect(id);
@@ -38,28 +44,32 @@ namespace jettnet.sockets
 
         public override ConnectionData GetDataForClient(int id)
         {
-            return _connections[id];
+            return _connectionsByID[id];
         }
 
         private void ServerConnect(int id)
         {
             var ep = _server.connections[id].GetRemoteEndPoint() as IPEndPoint;
+            var addr = ep.Address.ToString();
 
             var data = new ConnectionData
             {
-                Address = ep.Address.ToString(),
+                Address = addr,
                 Port = (ushort)ep.Port,
                 ClientId = id
             };
 
-            _connections.Add(id, data);
+            _connectionsByID.Add(id, data);
+            _connectionsByAddress.Add(addr, data);
+
             ServerConnected?.Invoke(data);
         }
 
         private void ServerDisconnect(int id)
         {
-            ServerDisconnected?.Invoke(_connections[id]);
-            _connections.Remove(id);
+            ServerDisconnected?.Invoke(_connectionsByID[id]);
+            _connectionsByAddress.Remove(_connectionsByID[id].Address);
+            _connectionsByID.Remove(id);
         }
 
         public override void FetchIncoming()

@@ -35,7 +35,7 @@ namespace jettnet
             using (PooledJettWriter writer = JettWriterPool.Get())
             {
                 writer.WriteByte((byte)Messages.Message);
-                writer.WriteInt(GetMessageId(nameof(msg)));
+                writer.WriteInt(GetMessageId(msg.GetType().Name));
 
                 msg.Serialize(writer);
                 _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connectionId, channel);
@@ -47,7 +47,7 @@ namespace jettnet
             using (PooledJettWriter writer = JettWriterPool.Get())
             {
                 writer.WriteByte((byte)Messages.Message);
-                writer.WriteInt(GetMessageId(nameof(msg)));
+                writer.WriteInt(GetMessageId(msg.GetType().Name));
 
                 msg.Serialize(writer);
                 _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
@@ -80,7 +80,7 @@ namespace jettnet
 
         public void RegisterInternal<T>(Action<T> handler) where T : struct, IJettMessage
         {
-            int id = GetMessageId(nameof(T));
+            int id = GetMessageId(typeof(T).Name);
 
             _messageHandlers[id] = CreateMessageDelegate(handler);
         }

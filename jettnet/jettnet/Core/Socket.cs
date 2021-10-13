@@ -42,6 +42,8 @@ namespace jettnet
 
         public abstract void DisconnectClient(int id);
 
+        public abstract bool AddressExists(string addr);
+
         public abstract void StopServer();
 
         public abstract void FetchIncoming();

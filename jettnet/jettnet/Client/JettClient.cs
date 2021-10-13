@@ -88,5 +88,13 @@ namespace jettnet
                 }
             }
         }
+
+#if UNITY_64
+        // unity keeps sockets open even when editor is done playing
+        private void OnApplicationQuit() 
+        {
+            _socket.StopClient();
+        }
+#endif
     }
 }
