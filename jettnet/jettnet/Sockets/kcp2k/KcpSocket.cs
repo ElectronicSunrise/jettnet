@@ -1,5 +1,7 @@
 ﻿using kcp2k;
 using System;
+using System.Collections.Generic;
+using System.Net;
 
 namespace jettnet.sockets
 {
@@ -7,6 +9,8 @@ namespace jettnet.sockets
     {
         private KcpServer _server;
         private KcpClient _client;
+
+        private Dictionary<int, ConnectionData> _connections = new Dictionary<int, ConnectionData>();
 
         public override void StartClient(string address, ushort port)
         {
@@ -19,12 +23,43 @@ namespace jettnet.sockets
 
         public override void StartServer(ushort port)
         {
-            _server = new KcpServer(ServerConnected,
+            _server = new KcpServer(ServerConnect,
                                     ServerDataRecv,
-                                    ServerDisconnected,
+                                    ServerDisconnect,
                                     true, true, 10, 0, false, 4096, 4096, 5000);
 
             _server.Start(port);
+        }
+
+        public override void DisconnectClient(int id)
+        {
+            _server?.Disconnect(id);
+        }
+
+        public override ConnectionData GetDataForClient(int id)
+        {
+            return _connections[id];
+        }
+
+        private void ServerConnect(int id)
+        {
+            var ep = _server.connections[id].GetRemoteEndPoint() as IPEndPoint;
+
+            var data = new ConnectionData
+            {
+                Address = ep.Address.ToString(),
+                Port = (ushort)ep.Port,
+                ClientId = id
+            };
+
+            _connections.Add(id, data);
+            ServerConnected?.Invoke(data);
+        }
+
+        private void ServerDisconnect(int id)
+        {
+            ServerDisconnected?.Invoke(_connections[id]);
+            _connections.Remove(id);
         }
 
         public override void FetchIncoming()

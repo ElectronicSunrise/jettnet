@@ -12,6 +12,13 @@ namespace jettnet
         public const int Unreliable = 1;
     }
 
+    public struct ConnectionData
+    {
+        public int ClientId;
+        public string Address;
+        public ushort Port;
+    }
+
     public enum Messages : byte
     {
         WorldUpdate = 0,

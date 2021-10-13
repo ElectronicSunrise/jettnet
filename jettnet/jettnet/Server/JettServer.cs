@@ -12,10 +12,12 @@ namespace jettnet
         private JettMessenger _messenger;
         private ushort _port;
 
-        public Action<int> ClientConnectedToServer;
-        public Action<int> ClientDisconnectedFromServer;
+        public Action<ConnectionData> ClientConnectedToServer;
+        public Action<ConnectionData> ClientDisconnectedFromServer;
 
         public bool Active = false;
+
+        public bool AllowMultipleConnectionsOneAddress = true;
 
         public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null)
         {
@@ -68,16 +70,19 @@ namespace jettnet
             }
         }
 
-        private void ServerConnected(int connId)
+        private void ServerConnected(ConnectionData data)
         {
-            _logger.Log("Client connected : " + connId);
-            ClientConnectedToServer?.Invoke(connId);
+            _logger.Log("Client connected : " + data.ClientId);
+            ClientConnectedToServer?.Invoke(data);
+
+            if (!AllowMultipleConnectionsOneAddress)
+                _socket.DisconnectClient(data.ClientId);
         }
 
-        private void ServerDisconnected(int connId)
+        private void ServerDisconnected(ConnectionData data)
         {
-            _logger.Log("Client disconnected : " + connId);
-            ClientDisconnectedFromServer?.Invoke(connId);
+            _logger.Log("Client disconnected : " + data.ClientId);
+            ClientDisconnectedFromServer?.Invoke(data);
         }
 
         private void DataRecv(int connId, ArraySegment<byte> segment)

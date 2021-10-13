@@ -17,16 +17,18 @@ namespace jettnet
         public Action ClientDisconnected;
 
         // client joins our server
-        public Action<int> ServerConnected;
+        public Action<ConnectionData> ServerConnected;
 
         // someone disconnected from out server
-        public Action<int> ServerDisconnected;
+        public Action<ConnectionData> ServerDisconnected;
 
         // client encounters an error
         public Action<Exception> ClientError;
 
         // server encounters an error caused by a client
         public Action<int, Exception> OnServerError;
+
+        public abstract ConnectionData GetDataForClient(int id);
 
         public abstract void StartClient(string address, ushort port);
 
@@ -37,6 +39,8 @@ namespace jettnet
         public abstract void ServerSend(ArraySegment<byte> data, int connId, int channel);
 
         public abstract void StartServer(ushort port);
+
+        public abstract void DisconnectClient(int id);
 
         public abstract void StopServer();
 
