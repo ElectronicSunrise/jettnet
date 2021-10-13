@@ -2,32 +2,72 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace jettnet
 {
     public class JettMessenger
     {
         private Dictionary<int, Action<JettReader>> _messageHandlers = new Dictionary<int, Action<JettReader>>();
+        private Dictionary<int, Action> _pendingReceiveCallbacks = new Dictionary<int, Action>();
         private Dictionary<Type, IJettMessage> _messageReaders;
-
-        private Queue<IJettMessage> _pendingMessages = new Queue<IJettMessage>();
-
-        private static MD5 _crypto = MD5.Create();
         
         private Socket _socket;
         private Logger _logger;
 
         private bool _isServer;
 
+        private int _recvCounter { get { _counter++; return _counter; } set { _counter = value; } }
+        private int _counter; 
+
         public JettMessenger(Socket socket, Logger logger, bool serverMessenger) 
         {
             _messageReaders = GetReadersAndWritersForMessages();
             _socket = socket;
             _logger = logger;
+            _recvCounter = int.MinValue;
 
             _isServer = serverMessenger;
+        }
+
+        public void RegisterDelegateInternal(string msgName, Action<JettReader> readDelegate) => RegisterDelegateInternal(msgName.ToID(), readDelegate);
+
+        public void RegisterDelegateInternal(int msgId, Action<JettReader> readDelegate)
+        {
+            _messageHandlers[msgId] = (reader) =>
+            {
+                try
+                {
+                    readDelegate.Invoke(reader);
+                }
+                catch
+                {
+                    _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}", LogLevel.Error);
+                }
+            };
+        }
+
+        public void SendDelegateToClient(int msgId, int connectionId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        {
+            using (PooledJettWriter writer = JettWriterPool.Get())
+            {
+                writer.WriteByte((byte)Messages.Message);
+                writer.WriteInt(msgId);
+                writeDelegate.Invoke(writer);
+
+                _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connectionId, channel);
+            }
+        }
+
+        public void SendDelegateToServer(int msgId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        {
+            using (PooledJettWriter writer = JettWriterPool.Get())
+            {
+                writer.WriteByte((byte)Messages.Message);
+                writer.WriteInt(msgId);
+                writeDelegate.Invoke(writer);
+
+                _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
+            }
         }
 
         public void SendToClient(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
@@ -35,9 +75,9 @@ namespace jettnet
             using (PooledJettWriter writer = JettWriterPool.Get())
             {
                 writer.WriteByte((byte)Messages.Message);
-                writer.WriteInt(GetMessageId(msg.GetType().Name));
-
+                writer.WriteInt(msg.GetType().Name.ToID());
                 msg.Serialize(writer);
+
                 _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connectionId, channel);
             }
         }
@@ -47,9 +87,13 @@ namespace jettnet
             using (PooledJettWriter writer = JettWriterPool.Get())
             {
                 writer.WriteByte((byte)Messages.Message);
-                writer.WriteInt(GetMessageId(msg.GetType().Name));
-
+                writer.WriteInt(msg.GetType().Name.ToID());
                 msg.Serialize(writer);
+
+                //int serialNumber = _recvCounter;
+
+                //_pendingReceiveCallbacks.Add(serialNumber, msg.MessageReceived);
+
                 _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
             }
         }
@@ -80,14 +124,9 @@ namespace jettnet
 
         public void RegisterInternal<T>(Action<T> handler) where T : struct, IJettMessage
         {
-            int id = GetMessageId(typeof(T).Name);
+            int id = typeof(T).Name.ToID();
 
-            _messageHandlers[id] = CreateMessageDelegate(handler);
-        }
-
-        private Action<JettReader> CreateMessageDelegate<T>(Action<T> handler) where T : struct, IJettMessage
-        {
-            Action<JettReader> del = (reader) =>
+            _messageHandlers[id] = (reader) =>
             {
                 try
                 {
@@ -102,8 +141,6 @@ namespace jettnet
                     _logger.Log($"Failed to deserialize and invoke the handler for message: {nameof(T)}", LogLevel.Error);
                 }
             };
-
-            return del;
         }
 
         public void HandleIncomingMessage(JettReader reader)
@@ -111,12 +148,6 @@ namespace jettnet
             int messageId = reader.ReadInt();
 
             _messageHandlers[messageId].Invoke(reader);
-        }
-
-        private int GetMessageId(string funcName)
-        { 
-            var result = _crypto.ComputeHash(Encoding.UTF8.GetBytes(funcName));
-            return BitConverter.ToInt32(result, 0);
         }
     }
 }

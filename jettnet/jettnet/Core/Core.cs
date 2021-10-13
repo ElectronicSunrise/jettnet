@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 
 // pool pattern derived from mirror networking's pooled writers/readers
 
@@ -21,11 +22,19 @@ namespace jettnet
 
     public enum Messages : byte
     {
-        WorldUpdate = 0,
-        Ping = 1,
-        Pong = 2,
-        JoinRoom = 3,
+        MesageReceived = 3,
         Message = 4
+    }
+
+    public static class IdExtenstions
+    {
+        private static MD5 _crypto = MD5.Create();
+
+        public static int ToID(this string s)
+        {
+            var result = _crypto.ComputeHash(Encoding.UTF8.GetBytes(s));
+            return BitConverter.ToInt32(result, 0);
+        }
     }
 
     // https://docs.microsoft.com/en-us/dotnet/standard/collections/thread-safe/how-to-create-an-object-pool
@@ -53,17 +62,16 @@ namespace jettnet
     public interface IJettMessage 
     {
         void Serialize(JettWriter writer);
+
+        event Action MessageReceived;
     }
 
     public sealed class JettWriterPool
     {
-        private static ObjectPool<PooledJettWriter> _writers;
+        private static readonly ObjectPool<PooledJettWriter> _writers = new ObjectPool<PooledJettWriter>(() => new PooledJettWriter());
 
         public static PooledJettWriter Get()
         {
-            if (_writers == null)
-                _writers = new ObjectPool<PooledJettWriter>(() => new PooledJettWriter());
-
             var writer = _writers.Get();
             writer.Position = 0;
 
@@ -78,13 +86,10 @@ namespace jettnet
 
     public sealed class JettReaderPool
     {
-        private static ObjectPool<PooledJettReader> _readers;
+        private static readonly ObjectPool<PooledJettReader> _readers = new ObjectPool<PooledJettReader>(() => new PooledJettReader());
 
         public static PooledJettReader Get(int pos, ArraySegment<byte> data)
         {
-            if (_readers == null)
-                _readers = new ObjectPool<PooledJettReader>(() => new PooledJettReader());
-
             var reader = _readers.Get();
 
             reader.Position = pos;

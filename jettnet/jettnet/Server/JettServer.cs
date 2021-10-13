@@ -30,6 +30,46 @@ namespace jettnet
             _messenger = new JettMessenger(_socket, _logger, true);
         }
 
+        #region Sending
+
+        public void Send(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
+        {
+            _messenger.SendToClient(msg, connectionId, channel);
+        }
+
+        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        {
+            _messenger.SendDelegateToClient(msgName.ToID(), clientId, writeDelegate, channel);
+        }
+
+        public void Send(int msgId, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        {
+            _messenger.SendDelegateToClient(msgId, clientId, writeDelegate, channel);
+        }
+
+        #endregion
+
+        #region Registering
+
+        public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
+        {
+            _messenger.RegisterInternal(msgHandler);
+        }
+
+        public void Register(int msgId, Action<JettReader> readMethod)
+        {
+            _messenger.RegisterDelegateInternal(msgId, readMethod);
+        }
+
+        public void Register(string msgName, Action<JettReader> readMethod)
+        {
+            _messenger.RegisterDelegateInternal(msgName, readMethod);
+        }
+
+        #endregion
+
+        #region Control
+
         public void Start()
         {
             _recvSendThread = new Thread(() => StartInternal());
@@ -49,21 +89,6 @@ namespace jettnet
             Active = false;
         }
 
-        public void Send(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
-        {
-            _messenger.SendToClient(msg, connectionId, channel);
-        }
-
-        public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
-        {
-            _messenger.RegisterInternal(msgHandler);
-        }
-
-        public void SendTo(ArraySegment<byte> data, int channel, int connId)
-        {
-            _socket?.ServerSend(data, connId, channel);
-        }
-
         private void StartInternal()
         {
             _socket.ServerDataRecv = DataRecv;
@@ -78,6 +103,10 @@ namespace jettnet
                 _socket.SendOutgoing();
             }
         }
+
+        #endregion
+
+        #region Callbacks
 
         private void ServerConnected(ConnectionData data)
         {
@@ -112,5 +141,7 @@ namespace jettnet
                 }
             }
         }
+
+        #endregion
     }
 }

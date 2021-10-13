@@ -33,20 +33,50 @@ namespace jettnet
             _socket.StopClient();
         }
 
-        public void Connect(string address, ushort port)
-        {
-            _recvSendThread = new Thread(() => ConnectInternal(address, port));
-            _recvSendThread.Start();
-        }
+        #region Sending
 
         public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
         {
             _messenger.SendToServer(msg, channel);
         }
 
+        public void Send(string msgName, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        {
+            _messenger.SendDelegateToServer(msgName.ToID(), writeDelegate, channel);
+        }
+
+        public void Send(int msgId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        {
+            _messenger.SendDelegateToServer(msgId, writeDelegate, channel);
+        }
+
+        #endregion
+
+        #region Registering
+
+        public void Register(int msgId, Action<JettReader> readMethod)
+        {
+            _messenger.RegisterDelegateInternal(msgId, readMethod);
+        }
+
+        public void Register(string msgName, Action<JettReader> readMethod)
+        {
+            _messenger.RegisterDelegateInternal(msgName, readMethod);
+        }
+
         public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
         {
             _messenger.RegisterInternal(msgHandler);
+        }
+
+        #endregion
+
+        #region Connection
+
+        public void Connect(string address, ushort port)
+        {
+            _recvSendThread = new Thread(() => ConnectInternal(address, port));
+            _recvSendThread.Start();
         }
 
         private void ConnectInternal(string address, ushort port)
@@ -68,6 +98,10 @@ namespace jettnet
         {
             _socket.StopClient();
         }
+
+        #endregion
+
+        #region Callbacks
 
         private void ClientConnected()
         {
@@ -97,5 +131,7 @@ namespace jettnet
                 }
             }
         }
+
+        #endregion
     }
 }

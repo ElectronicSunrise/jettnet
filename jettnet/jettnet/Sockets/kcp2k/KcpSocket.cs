@@ -88,15 +88,12 @@ namespace jettnet.sockets
         {
             switch (channel)
             {
+                default:
                 case 0:
                     _client?.Send(data, KcpChannel.Reliable);
                     break;
                 case 1:
                     _client?.Send(data, KcpChannel.Unreliable);
-                    break;
-
-                default:
-                    _client?.Send(data, KcpChannel.Reliable);
                     break;
             }
         }
@@ -105,15 +102,12 @@ namespace jettnet.sockets
         {
             switch (channel)
             {
+                default:
                 case 0:
                     _server?.Send(connId, data, KcpChannel.Reliable);
                     break;
                 case 1:
                     _server?.Send(connId, data, KcpChannel.Unreliable);
-                    break;
-
-                default:
-                    _server?.Send(connId, data, KcpChannel.Reliable);
                     break;
             }
         }
