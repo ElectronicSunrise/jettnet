@@ -19,6 +19,8 @@ namespace jettnet
 
         public bool AllowMultipleConnectionsOneAddress = true;
 
+        private Thread _recvSendThread;
+
         public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null)
         {
             _socket = socket ?? new KcpSocket();
@@ -30,8 +32,15 @@ namespace jettnet
 
         public void Start()
         {
-            new Thread(() => StartInternal()).Start();
+            _recvSendThread = new Thread(() => StartInternal());
+            _recvSendThread.Start();
             Active = true;
+        }
+
+        public void Shutdown()
+        {
+            _recvSendThread.Abort();
+            _socket.StopServer();
         }
 
         public void Stop()
@@ -103,13 +112,5 @@ namespace jettnet
                 }
             }
         }
-
-#if UNITY_64
-        // unity keeps sockets open even when editor is done playing
-        private void OnApplicationQuit() 
-        {
-            _socket.StopServer();
-        }
-#endif
     }
 }

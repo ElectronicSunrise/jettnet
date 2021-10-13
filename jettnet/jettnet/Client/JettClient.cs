@@ -17,6 +17,8 @@ namespace jettnet
         public Action OnConnect;
         public Action OnDisconnect;
 
+        private Thread _recvSendThread;
+
         public JettClient(Socket socket = null, Logger logger = null)
         {
             _logger = logger ?? new Logger();
@@ -25,9 +27,16 @@ namespace jettnet
             _messenger = new JettMessenger(_socket, _logger, false);
         }
 
+        public void Shutdown()
+        {
+            _recvSendThread.Abort();
+            _socket.StopClient();
+        }
+
         public void Connect(string address, ushort port)
         {
-            new Thread(() => ConnectInternal(address, port)).Start();
+            _recvSendThread = new Thread(() => ConnectInternal(address, port));
+            _recvSendThread.Start();
         }
 
         public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
@@ -88,13 +97,5 @@ namespace jettnet
                 }
             }
         }
-
-#if UNITY_64
-        // unity keeps sockets open even when editor is done playing
-        private void OnApplicationQuit() 
-        {
-            _socket.StopClient();
-        }
-#endif
     }
 }
