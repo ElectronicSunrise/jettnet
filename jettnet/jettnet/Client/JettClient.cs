@@ -66,7 +66,7 @@ namespace jettnet
 
         public void Register<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
         {
-            _messenger.RegisterInternal(msgHandler);
+            _messenger.RegisterInternal<T>((r, _) => msgHandler?.Invoke(r));
         }
 
         #endregion

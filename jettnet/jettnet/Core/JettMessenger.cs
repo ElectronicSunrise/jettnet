@@ -81,7 +81,7 @@ namespace jettnet
 
         #region Registering
 
-        public void RegisterInternal<T>(Action<T> handler) where T : struct, IJettMessage
+        public void RegisterInternal<T>(Action<T, ConnectionData> handler) where T : struct, IJettMessage
         {
             int id = typeof(T).Name.ToID();
 
@@ -93,7 +93,7 @@ namespace jettnet
 
                     T msg = (_messageReaders[type] as IJettMessage<T>).Deserialize(reader);
 
-                    handler.Invoke(msg);
+                    handler.Invoke(msg, connData);
                 }
                 catch
                 {
