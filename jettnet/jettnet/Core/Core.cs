@@ -63,8 +63,6 @@ namespace jettnet
     public interface IJettMessage 
     {
         void Serialize(JettWriter writer);
-
-        event Action MessageReceived;
     }
 
     public sealed class JettWriterPool
