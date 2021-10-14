@@ -51,7 +51,7 @@ namespace jettnet
 
         #region Registering
 
-        public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
+        public void Register<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
         {
             _messenger.RegisterInternal(msgHandler);
         }
