@@ -32,19 +32,19 @@ namespace jettnet
 
         #region Sending
 
-        public void Send(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
+        public void Send(IJettMessage msg, int connectionId, Action msgReceivedCallback = null, int channel = JettChannels.Reliable)
         {
-            _messenger.SendToClient(msg, connectionId, channel);
+            _messenger.SendMessage(msg, connectionId, true, msgReceivedCallback, channel);
         }
 
-        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, Action msgReceivedCallback = null, int channel = JettChannels.Reliable)
         {
-            _messenger.SendDelegateToClient(msgName.ToID(), clientId, writeDelegate, channel);
+            _messenger.SendDelegate(msgName.ToID(), writeDelegate, true, clientId, msgReceivedCallback, channel);
         }
 
-        public void Send(int msgId, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(int msgId, int clientId, Action<JettWriter> writeDelegate, Action msgReceivedCallback = null, int channel = JettChannels.Reliable)
         {
-            _messenger.SendDelegateToClient(msgId, clientId, writeDelegate, channel);
+            _messenger.SendDelegate(msgId, writeDelegate, true, clientId, msgReceivedCallback, channel);
         }
 
         #endregion
@@ -56,12 +56,12 @@ namespace jettnet
             _messenger.RegisterInternal(msgHandler);
         }
 
-        public void Register(int msgId, Action<JettReader> readMethod)
+        public void Register(int msgId, Action<JettReader, ConnectionData> readMethod)
         {
             _messenger.RegisterDelegateInternal(msgId, readMethod);
         }
 
-        public void Register(string msgName, Action<JettReader> readMethod)
+        public void Register(string msgName, Action<JettReader, ConnectionData> readMethod)
         {
             _messenger.RegisterDelegateInternal(msgName, readMethod);
         }
@@ -136,7 +136,10 @@ namespace jettnet
                 switch (msgId)
                 {
                     case Messages.Message:
-                        _messenger.HandleIncomingMessage(reader);
+                        _messenger.HandleIncomingMessage(reader, _socket.GetDataForClient(connId));
+                        break;
+                    case Messages.MessageReceived:
+                        _messenger.HandleIncomingMessageReceived(reader);
                         break;
                 }
             }

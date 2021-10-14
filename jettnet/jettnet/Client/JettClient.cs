@@ -35,19 +35,19 @@ namespace jettnet
 
         #region Sending
 
-        public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
+        public void Send(IJettMessage msg, int channel = JettChannels.Reliable, Action msgReceivedCallback = null)
         {
-            _messenger.SendToServer(msg, channel);
+            _messenger.SendMessage(msg, -1, false, msgReceivedCallback, channel);
         }
 
-        public void Send(string msgName, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(string msgName, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable, Action msgReceivedCallback = null)
         {
-            _messenger.SendDelegateToServer(msgName.ToID(), writeDelegate, channel);
+            _messenger.SendDelegate(msgName.ToID(), writeDelegate, false, -1, msgReceivedCallback, channel);
         }
 
-        public void Send(int msgId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(int msgId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable, Action msgReceivedCallback = null)
         {
-            _messenger.SendDelegateToServer(msgId, writeDelegate, channel);
+            _messenger.SendDelegate(msgId, writeDelegate, false, -1, msgReceivedCallback, channel);
         }
 
         #endregion
@@ -56,15 +56,15 @@ namespace jettnet
 
         public void Register(int msgId, Action<JettReader> readMethod)
         {
-            _messenger.RegisterDelegateInternal(msgId, readMethod);
+            _messenger.RegisterDelegateInternal(msgId, (r, _) => readMethod?.Invoke(r));
         }
 
         public void Register(string msgName, Action<JettReader> readMethod)
         {
-            _messenger.RegisterDelegateInternal(msgName, readMethod);
+            _messenger.RegisterDelegateInternal(msgName, (r, _) => readMethod?.Invoke(r));
         }
 
-        public void RegisterMessage<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
+        public void Register<T>(Action<T> msgHandler) where T : struct, IJettMessage<T>
         {
             _messenger.RegisterInternal(msgHandler);
         }
@@ -126,7 +126,11 @@ namespace jettnet
                 switch (msgId)
                 {
                     case Messages.Message:
-                        _messenger.HandleIncomingMessage(reader);
+                        // this is client side, client will always receive data from server so no need to pass in data
+                        _messenger.HandleIncomingMessage(reader, new ConnectionData());
+                        break;
+                    case Messages.MessageReceived:
+                        _messenger.HandleIncomingMessageReceived(reader);
                         break;
                 }
             }

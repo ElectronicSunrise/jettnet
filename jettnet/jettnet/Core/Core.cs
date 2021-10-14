@@ -20,9 +20,10 @@ namespace jettnet
         public ushort Port;
     }
 
+
     public enum Messages : byte
     {
-        MesageReceived = 3,
+        MessageReceived = 3,
         Message = 4
     }
 
@@ -72,8 +73,21 @@ namespace jettnet
 
         public static PooledJettWriter Get()
         {
+            return GetInternal();
+        }
+
+        private static PooledJettWriter GetInternal()
+        {
             var writer = _writers.Get();
             writer.Position = 0;
+            return writer;
+        }
+
+        public static PooledJettWriter Get(Messages header)
+        {
+            var writer = GetInternal();
+
+            writer.WriteByte((byte)header);
 
             return writer;
         }
