@@ -1,6 +1,5 @@
 ﻿using System;
 using jettnet.logging;
-using System.Threading;
 using jettnet.sockets;
 
 namespace jettnet
@@ -18,8 +17,6 @@ namespace jettnet
         public bool Active = false;
 
         public bool AllowMultipleConnectionsOneAddress = true;
-
-        private Thread _recvSendThread;
 
         public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null)
         {
@@ -74,9 +71,6 @@ namespace jettnet
         {
             StartInternal();
             Active = true;
-
-            _recvSendThread = new Thread(() => ServerLoop());
-            _recvSendThread.Start();
         }
 
         public void Shutdown()
@@ -99,11 +93,14 @@ namespace jettnet
             _socket.StartServer(_port);
         }
 
-        private void ServerLoop()
+        public void PollData()
         {
-            while (Active)
+            if (Active)
             {
                 _socket.FetchIncoming();
+
+                _messenger.InvokeCallbacks();
+
                 _socket.SendOutgoing();
             }
         }

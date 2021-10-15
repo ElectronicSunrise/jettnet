@@ -97,6 +97,9 @@ namespace jettnet
             if (_active)
             {
                 _socket.FetchIncoming();
+
+                _messenger.InvokeCallbacks();
+
                 _socket.SendOutgoing();
             }
         }
@@ -115,7 +118,7 @@ namespace jettnet
             _logger.Log("We connected to a server!");
             Connected = true;
 
-            OnConnect?.Invoke();
+            _messenger.QueueCallback(OnConnect);
         }
 
         private void ClientDisconnected()
@@ -123,7 +126,8 @@ namespace jettnet
             _logger.Log("We disconnected from a server");
             Connected = false;
             _active = false;
-            OnDisconnect?.Invoke();
+
+            _messenger.QueueCallback(OnDisconnect);
         }
 
         private void DataRecv(ArraySegment<byte> segment)

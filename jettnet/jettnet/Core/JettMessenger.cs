@@ -1,5 +1,6 @@
 ﻿using jettnet.logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -10,6 +11,8 @@ namespace jettnet
         private Dictionary<int, Action<JettReader, ConnectionData>> _messageHandlers = new Dictionary<int, Action<JettReader, ConnectionData>>();
         private Dictionary<int, Action> _pendingReceiveCallbacks = new Dictionary<int, Action>();
         private Dictionary<Type, IJettMessage> _messageReaders;
+
+        private ConcurrentQueue<Action> _callbackQueue = new ConcurrentQueue<Action>();
 
         private Socket _socket;
         private Logger _logger;
@@ -27,6 +30,16 @@ namespace jettnet
             _recvCounter = int.MinValue;
             _isServer = isServer;
         }
+
+        public void InvokeCallbacks()
+        {
+            while (_callbackQueue.TryDequeue(out Action a))
+            {
+                a.Invoke();
+            }
+        }
+
+        public void QueueCallback(Action cb) => _callbackQueue.Enqueue(cb);
 
         #region Sending
 
