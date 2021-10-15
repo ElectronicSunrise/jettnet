@@ -209,6 +209,12 @@ namespace jettnet
 
         public static void WriteBytes(this JettWriter writer, byte[] value)
         {
+            if(value == null)
+            {
+                writer.WriteInt(-1);
+                return;
+            }
+
             writer.WriteInt(value.Length);
 
             for (int i = 0; i < value.Length; i++)
@@ -219,7 +225,10 @@ namespace jettnet
         {
             int byteSize = reader.ReadInt();
 
-            byte[] value = new byte[byteSize];
+            byte[] value = byteSize == -1 ? new byte[0] : new byte[byteSize];
+
+            if (byteSize == -1)
+                return value;
 
             for (int i = 0; i < byteSize; i++)
                 value[i] = reader.ReadByte();

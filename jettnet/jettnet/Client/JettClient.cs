@@ -1,7 +1,6 @@
 ﻿using jettnet.logging;
 using jettnet.sockets;
 using System;
-using System.Threading;
 
 namespace jettnet
 {
@@ -18,11 +17,13 @@ namespace jettnet
         public Action OnConnect;
         public Action OnDisconnect;
 
-        private Thread _recvSendThread;
-
         public JettClient(Socket socket = null, Logger logger = null)
         {
+#if UNITY_64
+            _logger = logger ?? new Logger(UnityEngine.Debug.Log, UnityEngine.Debug.LogWarning, UnityEngine.Debug.LogError)
+#else
             _logger = logger ?? new Logger();
+#endif
             _socket = socket ?? new KcpSocket();
 
             _messenger = new JettMessenger(_socket, _logger, false);
@@ -35,7 +36,7 @@ namespace jettnet
             _active = false;
         }
 
-        #region Sending
+#region Sending
 
         public void Send(IJettMessage msg, int channel = JettChannels.Reliable, Action msgReceivedCallback = null)
         {
@@ -52,9 +53,9 @@ namespace jettnet
             _messenger.SendDelegate(msgId, writeDelegate, false, -1, msgReceivedCallback, channel);
         }
 
-        #endregion
+#endregion
 
-        #region Registering
+#region Registering
 
         public void Register(int msgId, Action<JettReader> readMethod)
         {
@@ -71,9 +72,9 @@ namespace jettnet
             _messenger.RegisterInternal<T>((r, _) => msgHandler?.Invoke(r));
         }
 
-        #endregion
+#endregion
 
-        #region Connection
+#region Connection
 
         public void Connect(string address, ushort port)
         {
@@ -88,15 +89,12 @@ namespace jettnet
             _socket.ClientDisconnected = ClientDisconnected;
             _socket.ClientDataRecv = DataRecv;
 
-            _recvSendThread = new Thread(() => ClientLoop());
-            _recvSendThread.Start();
-
             _socket.StartClient(address, port);
         }
 
-        private void ClientLoop()
+        public void PollData()
         {
-            while (_active)
+            if (_active)
             {
                 _socket.FetchIncoming();
                 _socket.SendOutgoing();
@@ -108,9 +106,9 @@ namespace jettnet
             _socket.StopClient();
         }
 
-        #endregion
+#endregion
 
-        #region Callbacks
+#region Callbacks
 
         private void ClientConnected()
         {
@@ -147,6 +145,6 @@ namespace jettnet
             }
         }
 
-        #endregion
+#endregion
     }
 }
