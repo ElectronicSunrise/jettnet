@@ -75,8 +75,7 @@ namespace jettnet
 
         public void Connect(string address, ushort port)
         {
-            _recvSendThread = new Thread(() => ConnectInternal(address, port));
-            _recvSendThread.Start();
+            ConnectInternal(address, port);
         }
 
         private void ConnectInternal(string address, ushort port)
@@ -87,6 +86,11 @@ namespace jettnet
 
             _socket.StartClient(address, port);
 
+            ClientLoop();
+        }
+
+        private void ClientLoop()
+        {
             while (Connected)
             {
                 _socket.FetchIncoming();
@@ -108,6 +112,9 @@ namespace jettnet
             _logger.Log("We connected to a server!");
             Connected = true;
             OnConnect?.Invoke();
+
+            _recvSendThread = new Thread(() => ClientLoop());
+            _recvSendThread.Start();
         }
 
         private void ClientDisconnected()

@@ -72,9 +72,11 @@ namespace jettnet
 
         public void Start()
         {
-            _recvSendThread = new Thread(() => StartInternal());
-            _recvSendThread.Start();
+            StartInternal();
             Active = true;
+
+            _recvSendThread = new Thread(() => ServerLoop());
+            _recvSendThread.Start();
         }
 
         public void Shutdown()
@@ -96,6 +98,11 @@ namespace jettnet
 
             _socket.StartServer(_port);
 
+            ServerLoop();
+        }
+
+        private void ServerLoop()
+        {
             while (Active)
             {
                 _socket.FetchIncoming();
