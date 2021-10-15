@@ -29,8 +29,8 @@ namespace jettnet
 
         public void Shutdown()
         {
-            _recvSendThread.Abort();
             _socket.StopClient();
+            Connected = false;
         }
 
         #region Sending
@@ -87,7 +87,7 @@ namespace jettnet
 
             _socket.StartClient(address, port);
 
-            while (true)
+            while (Connected)
             {
                 _socket.FetchIncoming();
                 _socket.SendOutgoing();

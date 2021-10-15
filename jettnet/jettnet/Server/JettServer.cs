@@ -79,7 +79,6 @@ namespace jettnet
 
         public void Shutdown()
         {
-            _recvSendThread.Abort();
             _socket.StopServer();
         }
 
@@ -97,7 +96,7 @@ namespace jettnet
 
             _socket.StartServer(_port);
 
-            while (true)
+            while (Active)
             {
                 _socket.FetchIncoming();
                 _socket.SendOutgoing();
