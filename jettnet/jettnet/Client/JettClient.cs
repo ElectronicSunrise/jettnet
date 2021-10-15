@@ -85,8 +85,6 @@ namespace jettnet
             _socket.ClientDataRecv = DataRecv;
 
             _socket.StartClient(address, port);
-
-            ClientLoop();
         }
 
         private void ClientLoop()
