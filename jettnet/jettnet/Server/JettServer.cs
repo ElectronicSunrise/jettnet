@@ -97,8 +97,6 @@ namespace jettnet
             _socket.ServerDisconnected = ServerDisconnected;
 
             _socket.StartServer(_port);
-
-            ServerLoop();
         }
 
         private void ServerLoop()
