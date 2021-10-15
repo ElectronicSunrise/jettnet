@@ -20,7 +20,7 @@ namespace jettnet
         public JettClient(Socket socket = null, Logger logger = null)
         {
 #if UNITY_64
-            _logger = logger ?? new Logger(UnityEngine.Debug.Log, UnityEngine.Debug.LogWarning, UnityEngine.Debug.LogError)
+            _logger = logger ?? new Logger(UnityEngine.Debug.Log, UnityEngine.Debug.LogWarning, UnityEngine.Debug.LogError);
 #else
             _logger = logger ?? new Logger();
 #endif
