@@ -13,6 +13,7 @@ namespace jettnet
         private JettMessenger _messenger;
 
         public bool Connected = false;
+        private bool _active = false;
 
         public Action OnConnect;
         public Action OnDisconnect;
@@ -31,6 +32,7 @@ namespace jettnet
         {
             _socket.StopClient();
             Connected = false;
+            _active = false;
         }
 
         #region Sending
@@ -80,16 +82,21 @@ namespace jettnet
 
         private void ConnectInternal(string address, ushort port)
         {
+            _active = true;
+
             _socket.ClientConnected = ClientConnected;
             _socket.ClientDisconnected = ClientDisconnected;
             _socket.ClientDataRecv = DataRecv;
+
+            _recvSendThread = new Thread(() => ClientLoop());
+            _recvSendThread.Start();
 
             _socket.StartClient(address, port);
         }
 
         private void ClientLoop()
         {
-            while (Connected)
+            while (_active)
             {
                 _socket.FetchIncoming();
                 _socket.SendOutgoing();
@@ -109,16 +116,15 @@ namespace jettnet
         {
             _logger.Log("We connected to a server!");
             Connected = true;
-            OnConnect?.Invoke();
 
-            _recvSendThread = new Thread(() => ClientLoop());
-            _recvSendThread.Start();
+            OnConnect?.Invoke();
         }
 
         private void ClientDisconnected()
         {
             _logger.Log("We disconnected from a server");
             Connected = false;
+            _active = false;
             OnDisconnect?.Invoke();
         }
 
