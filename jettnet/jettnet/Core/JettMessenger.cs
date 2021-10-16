@@ -14,6 +14,7 @@ namespace jettnet
 
         private ConcurrentQueue<Action> _clientCallbackQueue = new ConcurrentQueue<Action>();
         private ConcurrentQueue<ServerCallback> _serverCallbackQueue = new ConcurrentQueue<ServerCallback>();
+        private ConcurrentQueue<MsgHandlerCallback> _msgHandlerCallbackQueue = new ConcurrentQueue<MsgHandlerCallback>();
 
         private Socket _socket;
         private Logger _logger;
@@ -44,6 +45,9 @@ namespace jettnet
                 while (_serverCallbackQueue.TryDequeue(out ServerCallback cb))
                     cb.Method.Invoke(cb.Data);
             }
+
+            while (_msgHandlerCallbackQueue.TryDequeue(out MsgHandlerCallback cb))
+                cb.Handler.Invoke(cb.Reader, cb.Data);
         }
 
         public void QueueClientCallback(Action cb) => _clientCallbackQueue.Enqueue(cb);
@@ -163,7 +167,7 @@ namespace jettnet
             if (hasCallback)
             {
                 int serialNumber = _recvCounter;
-                _pendingReceiveCallbacks.Add(_recvCounter, recvCallback);
+                _pendingReceiveCallbacks.Add(serialNumber, recvCallback);
 
                 writer.WriteInt(serialNumber);
             }
@@ -185,7 +189,7 @@ namespace jettnet
             if (hasCallback)
             {
                 int serialNumber = _recvCounter;
-                _pendingReceiveCallbacks.Add(_recvCounter, recvCallback);
+                _pendingReceiveCallbacks.Add(serialNumber, recvCallback);
 
                 writer.WriteInt(serialNumber);
             }
@@ -235,7 +239,9 @@ namespace jettnet
         {
             int messageId = reader.ReadInt();
 
-            _messageHandlers[messageId].Invoke(reader, data);
+            var msgHandler = _messageHandlers[messageId];
+
+            _msgHandlerCallbackQueue.Enqueue(new MsgHandlerCallback { Handler = msgHandler, Data = data, Reader = reader });
 
             HandleRecvCallback(reader, data.ClientId);
         }

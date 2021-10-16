@@ -26,6 +26,13 @@ namespace jettnet
         public ConnectionData Data;
     }
 
+    public struct MsgHandlerCallback
+    {
+        public Action<JettReader, ConnectionData> Handler;
+        public JettReader Reader;
+        public ConnectionData Data;
+    }
+
     public enum Messages : byte
     {
         MessageReceived = 3,
