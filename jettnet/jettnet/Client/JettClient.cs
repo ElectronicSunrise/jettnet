@@ -19,11 +19,7 @@ namespace jettnet
 
         public JettClient(Socket socket = null, Logger logger = null)
         {
-#if UNITY_64
-            _logger = logger ?? new Logger(UnityEngine.Debug.Log, UnityEngine.Debug.LogWarning, UnityEngine.Debug.LogError);
-#else
             _logger = logger ?? new Logger();
-#endif
             _socket = socket ?? new KcpSocket();
 
             _messenger = new JettMessenger(_socket, _logger, false);

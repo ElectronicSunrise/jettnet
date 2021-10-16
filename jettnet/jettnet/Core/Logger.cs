@@ -26,18 +26,36 @@ namespace jettnet.logging
 
         public void Log(object msg, LogLevel logLevel = LogLevel.Info)
         {
+
+#if UNITY_64
             switch (logLevel)
             {
                 case LogLevel.Info:
-                    _info?.Invoke(msg);
+                    UnityEngine.Debug.Log(msg.ToString());
                     break;
                 case LogLevel.Warning:
-                    _warning?.Invoke(msg);
+                    UnityEngine.Debug.LogWarning(msg.ToString());
                     break;
                 case LogLevel.Error:
-                    _error?.Invoke(msg);
+                    UnityEngine.Debug.LogError(msg.ToString());
                     break;
             }
+#else
+
+            switch (logLevel)
+            {
+                case LogLevel.Info:
+                    _info?.Invoke(msg.ToString());
+                    break;
+                case LogLevel.Warning:
+                    _warning?.Invoke(msg.ToString());
+                    break;
+                case LogLevel.Error:
+                    _error?.Invoke(msg.ToString());
+                    break;
+            }
+
+#endif
         }
     }
 }

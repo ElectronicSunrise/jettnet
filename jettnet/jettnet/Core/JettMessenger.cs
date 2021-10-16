@@ -32,6 +32,10 @@ namespace jettnet
             _logger = logger;
             _recvCounter = int.MinValue;
             _isServer = isServer;
+
+#if UNITY_64
+            UnityEngine.Application.runInBackground = true;
+#endif
         }
 
         public void InvokeCallbacks()
@@ -57,7 +61,7 @@ namespace jettnet
         public void QueueClientCallback(Action cb) => _clientCallbackQueue.Enqueue(cb);
         public void QueueServerCallback(ServerCallback cb) => _serverCallbackQueue.Enqueue(cb);
 
-        #region Sending
+#region Sending
 
         public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, Action recvCallback = null, int channel = JettChannels.Reliable)
         {
@@ -106,9 +110,9 @@ namespace jettnet
             }
         }
 
-        #endregion
+#endregion
 
-        #region Registering
+#region Registering
 
         public void RegisterInternal<T>(Action<T, ConnectionData> handler) where T : struct, IJettMessage
         {
@@ -124,9 +128,9 @@ namespace jettnet
 
                     handler.Invoke(msg, connData);
                 }
-                catch
+                catch(Exception e)
                 {
-                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}", LogLevel.Error);
+                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}", LogLevel.Error);
                     _logQueue.Enqueue(log);
                 }
             };
@@ -145,17 +149,17 @@ namespace jettnet
                 {
                     readDelegate.Invoke(reader, connData);
                 }
-                catch
+                catch(Exception e)
                 {
-                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}", LogLevel.Error);
+                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}, Exception: {e}", LogLevel.Error);
                     _logQueue.Enqueue(log);
                 }
             };
         }
 
-        #endregion
+#endregion
 
-        #region Handlers
+#region Handlers
 
         private void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer, Action recvCallback)
         {
@@ -253,6 +257,6 @@ namespace jettnet
             //HandleRecvCallback(reader, data.ClientId);
         }
 
-        #endregion
+#endregion
     }
 }
