@@ -122,7 +122,7 @@ namespace jettnet
                 }
                 catch
                 {
-                    _logger.Log($"Failed to deserialize and invoke the handler for message: {nameof(T)}", LogLevel.Error);
+                    _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}", LogLevel.Error);
                 }
             };
         }
@@ -243,7 +243,7 @@ namespace jettnet
 
             _msgHandlerCallbackQueue.Enqueue(new MsgHandlerCallback { Handler = msgHandler, Data = data, Reader = reader });
 
-            HandleRecvCallback(reader, data.ClientId);
+            //HandleRecvCallback(reader, data.ClientId);
         }
 
         #endregion

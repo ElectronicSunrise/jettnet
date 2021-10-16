@@ -5,7 +5,7 @@ using System.Text;
 
 // pool pattern derived from mirror networking's pooled writers/readers
 
-namespace jettnet
+namespace jettnet // v1.1
 {
     public static class JettChannels
     {
