@@ -12,7 +12,8 @@ namespace jettnet
         private Dictionary<int, Action> _pendingReceiveCallbacks = new Dictionary<int, Action>();
         private Dictionary<Type, IJettMessage> _messageReaders;
 
-        private ConcurrentQueue<Action> _callbackQueue = new ConcurrentQueue<Action>();
+        private ConcurrentQueue<Action> _clientCallbackQueue = new ConcurrentQueue<Action>();
+        private ConcurrentQueue<ServerCallback> _serverCallbackQueue = new ConcurrentQueue<ServerCallback>();
 
         private Socket _socket;
         private Logger _logger;
@@ -33,13 +34,20 @@ namespace jettnet
 
         public void InvokeCallbacks()
         {
-            while (_callbackQueue.TryDequeue(out Action a))
+            if (!_isServer) 
             {
-                a.Invoke();
+                while (_clientCallbackQueue.TryDequeue(out Action a))
+                    a.Invoke();
+            }
+            else
+            {
+                while (_serverCallbackQueue.TryDequeue(out ServerCallback cb))
+                    cb.Method.Invoke(cb.Data);
             }
         }
 
-        public void QueueCallback(Action cb) => _callbackQueue.Enqueue(cb);
+        public void QueueClientCallback(Action cb) => _clientCallbackQueue.Enqueue(cb);
+        public void QueueServerCallback(ServerCallback cb) => _serverCallbackQueue.Enqueue(cb);
 
         #region Sending
 

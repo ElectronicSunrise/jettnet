@@ -20,6 +20,11 @@ namespace jettnet
         public ushort Port;
     }
 
+    public struct ServerCallback
+    {
+        public Action<ConnectionData> Method;
+        public ConnectionData Data;
+    }
 
     public enum Messages : byte
     {

@@ -119,13 +119,14 @@ namespace jettnet
                 return;
             }
 
-            ClientConnectedToServer?.Invoke(data);
+            _messenger.QueueServerCallback(new ServerCallback { Data = data, Method = ClientConnectedToServer });
         }
 
         private void ServerDisconnected(ConnectionData data)
         {
             _logger.Log("Client disconnected : " + data.ClientId);
-            ClientDisconnectedFromServer?.Invoke(data);
+
+            _messenger.QueueServerCallback(new ServerCallback { Data = data, Method = ClientDisconnectedFromServer });
         }
 
         private void DataRecv(int connId, ArraySegment<byte> segment)
