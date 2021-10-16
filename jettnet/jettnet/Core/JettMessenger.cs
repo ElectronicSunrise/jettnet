@@ -50,7 +50,7 @@ namespace jettnet
             while (_msgHandlerCallbackQueue.TryDequeue(out MsgHandlerCallback cb))
                 cb.Handler.Invoke(cb.Reader, cb.Data);
 
-            while (_clientCallbackQueue.TryDequeue(out Action a))
+            while (_logQueue.TryDequeue(out Action a))
                 a.Invoke();
         }
 
