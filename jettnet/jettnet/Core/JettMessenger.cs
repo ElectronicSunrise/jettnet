@@ -15,6 +15,7 @@ namespace jettnet
         private ConcurrentQueue<Action> _clientCallbackQueue = new ConcurrentQueue<Action>();
         private ConcurrentQueue<ServerCallback> _serverCallbackQueue = new ConcurrentQueue<ServerCallback>();
         private ConcurrentQueue<MsgHandlerCallback> _msgHandlerCallbackQueue = new ConcurrentQueue<MsgHandlerCallback>();
+        private ConcurrentQueue<Action> _logQueue = new ConcurrentQueue<Action>();
 
         private Socket _socket;
         private Logger _logger;
@@ -35,7 +36,7 @@ namespace jettnet
 
         public void InvokeCallbacks()
         {
-            if (!_isServer) 
+            if (!_isServer)
             {
                 while (_clientCallbackQueue.TryDequeue(out Action a))
                     a.Invoke();
@@ -48,6 +49,9 @@ namespace jettnet
 
             while (_msgHandlerCallbackQueue.TryDequeue(out MsgHandlerCallback cb))
                 cb.Handler.Invoke(cb.Reader, cb.Data);
+
+            while (_clientCallbackQueue.TryDequeue(out Action a))
+                a.Invoke();
         }
 
         public void QueueClientCallback(Action cb) => _clientCallbackQueue.Enqueue(cb);
@@ -90,7 +94,7 @@ namespace jettnet
                 int serialNumber = reader.ReadInt();
 
                 // tell peer we received their msg
-                using(PooledJettWriter writer = JettWriterPool.Get(Messages.MessageReceived))
+                using (PooledJettWriter writer = JettWriterPool.Get(Messages.MessageReceived))
                 {
                     writer.WriteInt(serialNumber);
 
@@ -122,7 +126,8 @@ namespace jettnet
                 }
                 catch
                 {
-                    _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}", LogLevel.Error);
+                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}", LogLevel.Error);
+                    _logQueue.Enqueue(log);
                 }
             };
         }
@@ -142,7 +147,8 @@ namespace jettnet
                 }
                 catch
                 {
-                    _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}", LogLevel.Error);
+                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}", LogLevel.Error);
+                    _logQueue.Enqueue(log);
                 }
             };
         }
@@ -157,10 +163,10 @@ namespace jettnet
 
             // write msg id
             writer.WriteInt(msgId);
-            
+
             // write user data
             writeDelegate.Invoke(writer);
-            
+
             // write callback
             writer.WriteBool(hasCallback);
 
@@ -179,7 +185,7 @@ namespace jettnet
 
             // id
             writer.WriteInt(msg.GetType().Name.ToID());
-            
+
             // user data
             msg.Serialize(writer);
 
@@ -199,7 +205,7 @@ namespace jettnet
         {
             int serialNumber = reader.ReadInt();
 
-            if(_pendingReceiveCallbacks.TryGetValue(serialNumber, out Action cb))
+            if (_pendingReceiveCallbacks.TryGetValue(serialNumber, out Action cb))
             {
                 cb?.Invoke();
 
@@ -207,7 +213,8 @@ namespace jettnet
             }
             else
             {
-                _logger.Log("Received msg recieved but we have no handler for it! SN: " + serialNumber, LogLevel.Warning);
+                Action log = () => _logger.Log("Received msg recieved but we have no handler for it! SN: " + serialNumber, LogLevel.Warning);
+                _logQueue.Enqueue(log);
             }
         }
 
