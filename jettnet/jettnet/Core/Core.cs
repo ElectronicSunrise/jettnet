@@ -296,7 +296,14 @@ namespace jettnet // v1.3
                 fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
                     int sizeOfStructure = sizeof(T);
-                    Buffer.MemoryCopy(&unmanagedStruct, dataPtr, writer.Buffer.Array.Length - writer.Position, sizeOfStructure);
+                    int freeBytesInBuffer = writer.Buffer.Array.Length - writer.Position;
+
+                    if (freeBytesInBuffer < sizeOfStructure)
+                    {
+                        // throw exception indicating that there's not enough bytes in the buffer
+                    }
+
+                    Buffer.MemoryCopy(&unmanagedStruct, dataPtr, freeBytesInBuffer, sizeOfStructure);
 
                     writer.Position += sizeOfStructure;
                 }
