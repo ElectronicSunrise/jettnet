@@ -288,5 +288,41 @@ namespace jettnet // v1.3
             reader.Position += 4;
             return value;
         }
+
+        public static void WriteUnmanagedStruct<T>(this JettWriter writer, T unmanagedStruct) where T : unmanaged
+        {
+            unsafe
+            {
+                fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
+                {
+                    int sizeOfStructure = sizeof(T);
+                    int freeBytesInBuffer = writer.Buffer.Array.Length - writer.Position;
+
+                    if (freeBytesInBuffer < sizeOfStructure)
+                    {
+                        throw new Exception("Buffer to small.  Bytes available: " + freeBytesInBuffer + " size of struct: " + sizeOfStructure);
+                    }
+
+                    Buffer.MemoryCopy(&unmanagedStruct, dataPtr, freeBytesInBuffer, sizeOfStructure);
+
+                    writer.Position += sizeOfStructure;
+                }
+            }
+        }
+
+        public static void ReadUnmanagedStruct<T>(this JettReader reader, ref T unmanagedStruct) where T : unmanaged
+        {
+            unsafe
+            {
+                fixed (byte* dataPtr = &reader.Buffer.Array[reader.Position])
+                {
+                    fixed(void* unmanagedPtr = &unmanagedStruct)
+                    {
+                        Buffer.MemoryCopy(dataPtr, unmanagedPtr, sizeof(T), sizeof(T));
+                    }
+                }
+            }
+
+        }
     }
 }
