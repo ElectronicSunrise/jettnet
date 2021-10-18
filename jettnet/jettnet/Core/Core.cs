@@ -300,7 +300,7 @@ namespace jettnet // v1.3
 
                     if (freeBytesInBuffer < sizeOfStructure)
                     {
-                        // throw exception indicating that there's not enough bytes in the buffer
+                        throw new Exception("Buffer to small.  Bytes available: " + freeBytesInBuffer + " size of struct: " + sizeOfStructure);
                     }
 
                     Buffer.MemoryCopy(&unmanagedStruct, dataPtr, freeBytesInBuffer, sizeOfStructure);
