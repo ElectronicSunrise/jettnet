@@ -289,7 +289,7 @@ namespace jettnet // v1.3
             return value;
         }
 
-        public static void WriteUnmanagedStruct<T>(this JettWriter writer, ref T unmanagedStruct) where T : unmanaged
+        public static void WriteUnsafeStruct<T>(this JettWriter writer, ref T unmanagedStruct) where T : unmanaged
         {
             unsafe
             {
@@ -313,7 +313,7 @@ namespace jettnet // v1.3
             }
         }
 
-        public static void ReadUnmanagedStruct<T>(this JettReader reader, ref T unmanagedStruct) where T : unmanaged
+        public static void ReadUnsafeStruct<T>(this JettReader reader, ref T unmanagedStruct) where T : unmanaged
         {
             unsafe
             {
