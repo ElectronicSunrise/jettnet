@@ -3,35 +3,35 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace jettnet
 {
     public class JettMessenger
     {
         private Dictionary<int, Action<JettReader, ConnectionData>> _messageHandlers = new Dictionary<int, Action<JettReader, ConnectionData>>();
-        private Dictionary<int, Action> _pendingReceiveCallbacks = new Dictionary<int, Action>();
         private Dictionary<Type, IJettMessage> _messageReaders;
 
         private ConcurrentQueue<Action> _clientCallbackQueue = new ConcurrentQueue<Action>();
         private ConcurrentQueue<ServerCallback> _serverCallbackQueue = new ConcurrentQueue<ServerCallback>();
         private ConcurrentQueue<MsgHandlerCallback> _msgHandlerCallbackQueue = new ConcurrentQueue<MsgHandlerCallback>();
-        private ConcurrentQueue<Action> _logQueue = new ConcurrentQueue<Action>();
+
+        private Dictionary<int, MsgResponseCallback> _pendingResponseCallbacks = new Dictionary<int, MsgResponseCallback>();
+        private ConcurrentQueue<MsgResponseCallback> _msgResponseQueue = new ConcurrentQueue<MsgResponseCallback>();
 
         private Socket _socket;
         private Logger _logger;
-
-        private int _recvCounter { get { _counter++; return _counter; } set { _counter = value; } }
-        private int _counter;
+        private Counter _counter;
 
         private bool _isServer;
 
-        public JettMessenger(Socket socket, Logger logger, bool isServer)
+        public JettMessenger(Socket socket, Logger logger, bool isServer, params string[] messageAsms)
         {
-            _messageReaders = GetReadersAndWritersForMessages();
+            _messageReaders = GetReadersAndWritersForMessages(messageAsms);
             _socket = socket;
             _logger = logger;
-            _recvCounter = int.MinValue;
             _isServer = isServer;
+            _counter = new Counter();
 
 #if UNITY_64
             UnityEngine.Application.runInBackground = true;
@@ -54,20 +54,21 @@ namespace jettnet
             while (_msgHandlerCallbackQueue.TryDequeue(out MsgHandlerCallback cb))
                 cb.Handler.Invoke(cb.Reader, cb.Data);
 
-            while (_logQueue.TryDequeue(out Action a))
-                a.Invoke();
+            while (_msgResponseQueue.TryDequeue(out MsgResponseCallback cb))
+                cb.ResponseCallback.Invoke();
         }
 
         public void QueueClientCallback(Action cb) => _clientCallbackQueue.Enqueue(cb);
+
         public void QueueServerCallback(ServerCallback cb) => _serverCallbackQueue.Enqueue(cb);
 
-#region Sending
+        #region Sending
 
-        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, Action recvCallback = null, int channel = JettChannels.Reliable)
+        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, Action responseCallback = null, int channel = JettChannels.Reliable)
         {
-            using (PooledJettWriter writer = JettWriterPool.Get(Messages.Message))
+            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
-                SerializeDelegate(msgId, writeDelegate, writer, recvCallback);
+                SerializeDelegate(msgId, writeDelegate, writer, responseCallback);
 
                 if (!isServer)
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
@@ -76,11 +77,11 @@ namespace jettnet
             }
         }
 
-        public void SendMessage(IJettMessage msg, int connectionId, bool isServer, Action recvCallback = null, int channel = JettChannels.Reliable)
+        public void SendMessage(IJettMessage msg, int connectionId, bool isServer, Action responseCallback = null, int channel = JettChannels.Reliable)
         {
-            using (PooledJettWriter writer = JettWriterPool.Get(Messages.Message))
+            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
-                SerializeMessage(msg, writer, recvCallback);
+                SerializeMessage(msg, writer, responseCallback);
 
                 if (!isServer)
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
@@ -89,7 +90,7 @@ namespace jettnet
             }
         }
 
-        private void HandleRecvCallback(JettReader reader, int connId)
+        private void HandleResponse(JettReader reader, int connId)
         {
             bool hasCallback = reader.ReadBool();
 
@@ -98,7 +99,7 @@ namespace jettnet
                 int serialNumber = reader.ReadInt();
 
                 // tell peer we received their msg
-                using (PooledJettWriter writer = JettWriterPool.Get(Messages.MessageReceived))
+                using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.MessageReceived))
                 {
                     writer.WriteInt(serialNumber);
 
@@ -110,9 +111,9 @@ namespace jettnet
             }
         }
 
-#endregion
+        #endregion Sending
 
-#region Registering
+        #region Registering
 
         public void RegisterInternal<T>(Action<T, ConnectionData> handler) where T : struct, IJettMessage
         {
@@ -128,10 +129,9 @@ namespace jettnet
 
                     handler.Invoke(msg, connData);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}", LogLevel.Error);
-                    _logQueue.Enqueue(log);
+                    _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}", LogLevel.Error);
                 }
             };
         }
@@ -149,21 +149,20 @@ namespace jettnet
                 {
                     readDelegate.Invoke(reader, connData);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    Action log = () => _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}, Exception: {e}", LogLevel.Error);
-                    _logQueue.Enqueue(log);
+                    _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}, Exception: {e}", LogLevel.Error);
                 }
             };
         }
 
-#endregion
+        #endregion Registering
 
-#region Handlers
+        #region Handlers
 
-        private void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer, Action recvCallback)
+        private void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer, Action response)
         {
-            bool hasCallback = recvCallback != null;
+            bool hasCallback = response != null;
 
             // write msg id
             writer.WriteInt(msgId);
@@ -171,21 +170,21 @@ namespace jettnet
             // write user data
             writeDelegate.Invoke(writer);
 
-            // write callback
             writer.WriteBool(hasCallback);
 
             if (hasCallback)
             {
-                int serialNumber = _recvCounter;
-                _pendingReceiveCallbacks.Add(serialNumber, recvCallback);
+                int serialNumber = _counter.Next();
+
+                _pendingResponseCallbacks.Add(serialNumber, new MsgResponseCallback { ResponseCallback = response });
 
                 writer.WriteInt(serialNumber);
             }
         }
 
-        private void SerializeMessage(IJettMessage msg, PooledJettWriter writer, Action recvCallback)
+        private void SerializeMessage(IJettMessage msg, PooledJettWriter writer, Action response)
         {
-            bool hasCallback = recvCallback != null;
+            bool hasCallback = response != null;
 
             // id
             writer.WriteInt(msg.GetType().Name.ToID());
@@ -193,42 +192,35 @@ namespace jettnet
             // user data
             msg.Serialize(writer);
 
-            // cb
             writer.WriteBool(hasCallback);
 
             if (hasCallback)
             {
-                int serialNumber = _recvCounter;
-                _pendingReceiveCallbacks.Add(serialNumber, recvCallback);
+                int serialNumber = _counter.Next();
+
+                _pendingResponseCallbacks.Add(serialNumber, new MsgResponseCallback { ResponseCallback = response });
 
                 writer.WriteInt(serialNumber);
             }
         }
 
-        public void HandleIncomingMessageReceived(JettReader reader)
-        {
-            int serialNumber = reader.ReadInt();
-
-            if (_pendingReceiveCallbacks.TryGetValue(serialNumber, out Action cb))
-            {
-                cb?.Invoke();
-
-                _pendingReceiveCallbacks.Remove(serialNumber);
-            }
-            else
-            {
-                Action log = () => _logger.Log("Received msg recieved but we have no handler for it! SN: " + serialNumber, LogLevel.Warning);
-                _logQueue.Enqueue(log);
-            }
-        }
-
-        private static Dictionary<Type, IJettMessage> GetReadersAndWritersForMessages()
+        private static Dictionary<Type, IJettMessage> GetReadersAndWritersForMessages(params string[] extraAsms)
         {
             var type = typeof(IJettMessage);
 
-            var types = AppDomain.CurrentDomain.GetAssemblies()
+            List<Assembly> assemblies = AppDomain.CurrentDomain.GetAssemblies().ToList();
+
+            foreach (var item in extraAsms)
+            {
+                var asm = Assembly.Load(item);
+
+                if (item != null)
+                    assemblies.Add(asm);
+            }
+
+            var types = assemblies
                 .SelectMany(s => s.GetTypes())
-                .Where(x => type.IsAssignableFrom(x)).ToArray();
+                .Where(x => type.IsAssignableFrom(x)).ToList();
 
             Dictionary<Type, IJettMessage> foundPairs = new Dictionary<Type, IJettMessage>();
 
@@ -254,9 +246,18 @@ namespace jettnet
 
             _msgHandlerCallbackQueue.Enqueue(new MsgHandlerCallback { Handler = msgHandler, Data = data, Reader = reader });
 
-            //HandleRecvCallback(reader, data.ClientId);
+            HandleResponse(reader, data.ClientId);
         }
 
-#endregion
+        public void HandleIncomingResponseMessage(JettReader reader, ConnectionData data)
+        {
+            int serialNumber = reader.ReadInt();
+
+            var response = _pendingResponseCallbacks[serialNumber];
+
+            _msgResponseQueue.Enqueue(response);
+        }
+
+        #endregion Handlers
     }
 }

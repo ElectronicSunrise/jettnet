@@ -18,13 +18,13 @@ namespace jettnet
 
         public bool AllowMultipleConnectionsOneAddress = true;
 
-        public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null)
+        public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null, params string[] extraMessageAsms)
         {
             _socket = socket ?? new KcpSocket();
             _logger = logger ?? new Logger();
             _port = port;
 
-            _messenger = new JettMessenger(_socket, _logger, true);
+            _messenger = new JettMessenger(_socket, _logger, true, extraMessageAsms);
         }
 
         #region Sending
@@ -133,15 +133,15 @@ namespace jettnet
         {
             using(PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
             {
-                var msgId = (Messages)reader.ReadByte();
+                var msgId = (JettHeader)reader.ReadByte();
 
                 switch (msgId)
                 {
-                    case Messages.Message:
+                    case JettHeader.Message:
                         _messenger.HandleIncomingMessage(reader, _socket.GetDataForClient(connId));
                         break;
-                    case Messages.MessageReceived:
-                        _messenger.HandleIncomingMessageReceived(reader);
+                    case JettHeader.MessageReceived:
+                        _messenger.HandleIncomingResponseMessage(reader, _socket.GetDataForClient(connId));
                         break;
                 }
             }

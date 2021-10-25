@@ -3,7 +3,45 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 
-// pool pattern derived from mirror networking's pooled writers/readers
+//         _        _    _                 _   
+//        (_)      | |  | |               | |  
+//         _   ___ | |_ | |_  _ __    ___ | |_ 
+//        | | / _ \| __|| __|| '_ \  / _ \| __|
+//        | ||  __/| |_ | |_ | | | ||  __/| |_ 
+//        | | \___| \__| \__||_| |_| \___| \__|
+//       _/ |                                  
+//      |__/
+//  
+//                   _ooOoo_
+//                  o8888888o
+//                  88" . "88
+//                  (| -_- |)
+//                  O\  =  /O
+//               ____/`---'\____
+//             .'  \\|     |//  `.
+//            /  \\|||  :  |||//  \
+//           /  _||||| -:- |||||-  \
+//           |   | \\\  -  /// |   |
+//           | \_|  ''\---/''  |   |
+//           \  .-\__  `-`  ___/-. /
+//         ___`. .'  /--.--\  `. . __
+//      ."" '<  `.___\_<|>_/___.'  >'"".
+//     | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+//     \  \ `-.   \_ __\ /__ _/   .-` /  /
+//======`-.____`-.___\_____/___.-`____.-'======
+//                   `=---='
+//
+//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//          佛祖保佑           永无BUG
+//         God Bless        Never Crash
+
+// [ header ] (1 byte)
+// [ message id] (4 bytes)
+
+// [ user serialized data ] 
+
+// [ callback flag ] (1 byte)
+// [ serial number ] (4 bytes, or 0 if callback flag = false) 
 
 namespace jettnet // v1.3
 {
@@ -26,6 +64,11 @@ namespace jettnet // v1.3
         public ConnectionData Data;
     }
 
+    public struct MsgResponseCallback
+    {
+        public Action ResponseCallback;
+    }
+
     public struct MsgHandlerCallback
     {
         public Action<JettReader, ConnectionData> Handler;
@@ -33,7 +76,7 @@ namespace jettnet // v1.3
         public ConnectionData Data;
     }
 
-    public enum Messages : byte
+    public enum JettHeader : byte
     {
         MessageReceived = 3,
         Message = 4
@@ -48,6 +91,12 @@ namespace jettnet // v1.3
             var result = _crypto.ComputeHash(Encoding.UTF8.GetBytes(s));
             return BitConverter.ToInt32(result, 0);
         }
+    }
+
+    public class Counter
+    {
+        private int _internalCount = int.MinValue;
+        public int Next() => _internalCount++;
     }
 
     // https://docs.microsoft.com/en-us/dotnet/standard/collections/thread-safe/how-to-create-an-object-pool
@@ -93,7 +142,7 @@ namespace jettnet // v1.3
             return writer;
         }
 
-        public static PooledJettWriter Get(Messages header)
+        public static PooledJettWriter Get(JettHeader header)
         {
             var writer = GetInternal();
 
@@ -300,7 +349,7 @@ namespace jettnet // v1.3
 
                     if (freeBytesInBuffer < sizeOfStructure)
                     {
-                        throw new Exception("Buffer to small.  Bytes available: " + freeBytesInBuffer + " size of struct: " + sizeOfStructure);
+                        throw new Exception("Buffer too small.  Bytes available: " + freeBytesInBuffer + " size of struct: " + sizeOfStructure);
                     }
 
                     Buffer.MemoryCopy(&unmanagedStruct, dataPtr, freeBytesInBuffer, sizeOfStructure);

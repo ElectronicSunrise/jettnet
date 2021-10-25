@@ -17,12 +17,12 @@ namespace jettnet
         public Action OnConnect;
         public Action OnDisconnect;
 
-        public JettClient(Socket socket = null, Logger logger = null)
+        public JettClient(Socket socket = null, Logger logger = null, params string[] extraMessageAsms)
         {
             _logger = logger ?? new Logger();
             _socket = socket ?? new KcpSocket();
 
-            _messenger = new JettMessenger(_socket, _logger, false);
+            _messenger = new JettMessenger(_socket, _logger, false, extraMessageAsms);
         }
 
         public void Shutdown()
@@ -130,16 +130,16 @@ namespace jettnet
         {
             using (PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
             {
-                var msgId = (Messages)reader.ReadByte();
+                var msgId = (JettHeader)reader.ReadByte();
 
                 switch (msgId)
                 {
-                    case Messages.Message:
+                    case JettHeader.Message:
                         // this is client side, client will always receive data from server so no need to pass in data
                         _messenger.HandleIncomingMessage(reader, new ConnectionData());
                         break;
-                    case Messages.MessageReceived:
-                        _messenger.HandleIncomingMessageReceived(reader);
+                    case JettHeader.MessageReceived:
+                        _messenger.HandleIncomingResponseMessage(reader, new ConnectionData());
                         break;
                 }
             }
