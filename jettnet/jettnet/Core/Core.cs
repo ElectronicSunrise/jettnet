@@ -289,23 +289,26 @@ namespace jettnet // v1.3
             return value;
         }
 
-        public static void WriteUnmanagedStruct<T>(this JettWriter writer, T unmanagedStruct) where T : unmanaged
+        public static void WriteUnmanagedStruct<T>(this JettWriter writer, ref T unmanagedStruct) where T : unmanaged
         {
             unsafe
             {
                 fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
-                    int sizeOfStructure = sizeof(T);
-                    int freeBytesInBuffer = writer.Buffer.Array.Length - writer.Position;
-
-                    if (freeBytesInBuffer < sizeOfStructure)
+                    fixed (void* unmanagedStructPtr = &unmanagedStruct)
                     {
-                        throw new Exception("Buffer to small.  Bytes available: " + freeBytesInBuffer + " size of struct: " + sizeOfStructure);
+                        int sizeOfStructure = sizeof(T);
+                        int freeBytesInBuffer = writer.Buffer.Array.Length - writer.Position;
+
+                        if (freeBytesInBuffer < sizeOfStructure)
+                        {
+                            throw new Exception("Buffer too small.  Bytes available: " + freeBytesInBuffer + " size of struct: " + sizeOfStructure);
+                        }
+
+                        Buffer.MemoryCopy(unmanagedStructPtr, dataPtr, freeBytesInBuffer, sizeOfStructure);
+
+                        writer.Position += sizeOfStructure;
                     }
-
-                    Buffer.MemoryCopy(&unmanagedStruct, dataPtr, freeBytesInBuffer, sizeOfStructure);
-
-                    writer.Position += sizeOfStructure;
                 }
             }
         }
