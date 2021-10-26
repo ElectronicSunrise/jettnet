@@ -34,19 +34,19 @@ namespace jettnet
 
 #region Sending
 
-        public void Send(IJettMessage msg, int channel = JettChannels.Reliable, Action msgReceivedCallback = null)
+        public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
         {
-            _messenger.SendMessage(msg, -1, false, msgReceivedCallback, channel);
+            _messenger.SendMessage(msg, -1, false, channel);
         }
 
-        public void Send(string msgName, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable, Action msgReceivedCallback = null)
+        public void Send(string msgName, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
         {
-            _messenger.SendDelegate(msgName.ToID(), writeDelegate, false, -1, msgReceivedCallback, channel);
+            _messenger.SendDelegate(msgName.ToID(), writeDelegate, false, -1, channel);
         }
 
-        public void Send(int msgId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable, Action msgReceivedCallback = null)
+        public void Send(int msgId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
         {
-            _messenger.SendDelegate(msgId, writeDelegate, false, -1, msgReceivedCallback, channel);
+            _messenger.SendDelegate(msgId, writeDelegate, false, -1, channel);
         }
 
 #endregion
@@ -94,8 +94,6 @@ namespace jettnet
             {
                 _socket.FetchIncoming();
 
-                _messenger.InvokeCallbacks();
-
                 _socket.SendOutgoing();
             }
         }
@@ -114,7 +112,7 @@ namespace jettnet
             _logger.Log("We connected to a server!");
             Connected = true;
 
-            _messenger.QueueClientCallback(OnConnect);
+            OnConnect?.Invoke();
         }
 
         private void ClientDisconnected()
@@ -123,7 +121,7 @@ namespace jettnet
             Connected = false;
             _active = false;
 
-            _messenger.QueueClientCallback(OnDisconnect);
+            OnDisconnect?.Invoke();
         }
 
         private void DataRecv(ArraySegment<byte> segment)
@@ -137,9 +135,6 @@ namespace jettnet
                     case JettHeader.Message:
                         // this is client side, client will always receive data from server so no need to pass in data
                         _messenger.HandleIncomingMessage(reader, new ConnectionData());
-                        break;
-                    case JettHeader.MessageReceived:
-                        _messenger.HandleIncomingResponseMessage(reader, new ConnectionData());
                         break;
                 }
             }

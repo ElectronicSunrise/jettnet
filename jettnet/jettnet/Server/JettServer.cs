@@ -29,19 +29,19 @@ namespace jettnet
 
         #region Sending
 
-        public void Send(IJettMessage msg, int connectionId, Action msgReceivedCallback = null, int channel = JettChannels.Reliable)
+        public void Send(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
         {
-            _messenger.SendMessage(msg, connectionId, true, msgReceivedCallback, channel);
+            _messenger.SendMessage(msg, connectionId, true, channel);
         }
 
-        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, Action msgReceivedCallback = null, int channel = JettChannels.Reliable)
+        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
         {
-            _messenger.SendDelegate(msgName.ToID(), writeDelegate, true, clientId, msgReceivedCallback, channel);
+            _messenger.SendDelegate(msgName.ToID(), writeDelegate, true, clientId, channel);
         }
 
-        public void Send(int msgId, int clientId, Action<JettWriter> writeDelegate, Action msgReceivedCallback = null, int channel = JettChannels.Reliable)
+        public void Send(int msgId, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
         {
-            _messenger.SendDelegate(msgId, writeDelegate, true, clientId, msgReceivedCallback, channel);
+            _messenger.SendDelegate(msgId, writeDelegate, true, clientId, channel);
         }
 
         #endregion
@@ -99,8 +99,6 @@ namespace jettnet
             {
                 _socket.FetchIncoming();
 
-                _messenger.InvokeCallbacks();
-
                 _socket.SendOutgoing();
             }
         }
@@ -119,14 +117,14 @@ namespace jettnet
                 return;
             }
 
-            _messenger.QueueServerCallback(new ServerCallback { Data = data, Method = ClientConnectedToServer });
+            ClientConnectedToServer?.Invoke(data);
         }
 
         private void ServerDisconnected(ConnectionData data)
         {
             _logger.Log("Client disconnected : " + data.ClientId);
 
-            _messenger.QueueServerCallback(new ServerCallback { Data = data, Method = ClientDisconnectedFromServer });
+            ClientDisconnectedFromServer?.Invoke(data);
         }
 
         private void DataRecv(int connId, ArraySegment<byte> segment)
@@ -139,9 +137,6 @@ namespace jettnet
                 {
                     case JettHeader.Message:
                         _messenger.HandleIncomingMessage(reader, _socket.GetDataForClient(connId));
-                        break;
-                    case JettHeader.MessageReceived:
-                        _messenger.HandleIncomingResponseMessage(reader, _socket.GetDataForClient(connId));
                         break;
                 }
             }

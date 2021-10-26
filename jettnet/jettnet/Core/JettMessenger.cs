@@ -12,13 +12,6 @@ namespace jettnet
         private Dictionary<int, Action<JettReader, ConnectionData>> _messageHandlers = new Dictionary<int, Action<JettReader, ConnectionData>>();
         private Dictionary<Type, IJettMessage> _messageReaders;
 
-        private ConcurrentQueue<Action> _clientCallbackQueue = new ConcurrentQueue<Action>();
-        private ConcurrentQueue<ServerCallback> _serverCallbackQueue = new ConcurrentQueue<ServerCallback>();
-        private ConcurrentQueue<MsgHandlerCallback> _msgHandlerCallbackQueue = new ConcurrentQueue<MsgHandlerCallback>();
-
-        private Dictionary<int, MsgResponseCallback> _pendingResponseCallbacks = new Dictionary<int, MsgResponseCallback>();
-        private ConcurrentQueue<MsgResponseCallback> _msgResponseQueue = new ConcurrentQueue<MsgResponseCallback>();
-
         private Socket _socket;
         private Logger _logger;
         private Counter _counter;
@@ -38,37 +31,13 @@ namespace jettnet
 #endif
         }
 
-        public void InvokeCallbacks()
-        {
-            if (!_isServer)
-            {
-                while (_clientCallbackQueue.TryDequeue(out Action a))
-                    a.Invoke();
-            }
-            else
-            {
-                while (_serverCallbackQueue.TryDequeue(out ServerCallback cb))
-                    cb.Method.Invoke(cb.Data);
-            }
-
-            while (_msgHandlerCallbackQueue.TryDequeue(out MsgHandlerCallback cb))
-                cb.Handler.Invoke(cb.Reader, cb.Data);
-
-            while (_msgResponseQueue.TryDequeue(out MsgResponseCallback cb))
-                cb.ResponseCallback.Invoke();
-        }
-
-        public void QueueClientCallback(Action cb) => _clientCallbackQueue.Enqueue(cb);
-
-        public void QueueServerCallback(ServerCallback cb) => _serverCallbackQueue.Enqueue(cb);
-
         #region Sending
 
-        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, Action responseCallback = null, int channel = JettChannels.Reliable)
+        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
-                SerializeDelegate(msgId, writeDelegate, writer, responseCallback);
+                SerializeDelegate(msgId, writeDelegate, writer);
 
                 if (!isServer)
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
@@ -77,11 +46,11 @@ namespace jettnet
             }
         }
 
-        public void SendMessage(IJettMessage msg, int connectionId, bool isServer, Action responseCallback = null, int channel = JettChannels.Reliable)
+        public void SendMessage(IJettMessage msg, int connectionId, bool isServer, int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
-                SerializeMessage(msg, writer, responseCallback);
+                SerializeMessage(msg, writer);
 
                 if (!isServer)
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
@@ -160,48 +129,22 @@ namespace jettnet
 
         #region Handlers
 
-        private void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer, Action response)
+        private void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer)
         {
-            bool hasCallback = response != null;
-
             // write msg id
             writer.WriteInt(msgId);
 
             // write user data
             writeDelegate.Invoke(writer);
-
-            writer.WriteBool(hasCallback);
-
-            if (hasCallback)
-            {
-                int serialNumber = _counter.Next();
-
-                _pendingResponseCallbacks.Add(serialNumber, new MsgResponseCallback { ResponseCallback = response });
-
-                writer.WriteInt(serialNumber);
-            }
         }
 
-        private void SerializeMessage(IJettMessage msg, PooledJettWriter writer, Action response)
+        private void SerializeMessage(IJettMessage msg, PooledJettWriter writer)
         {
-            bool hasCallback = response != null;
-
             // id
             writer.WriteInt(msg.GetType().Name.ToID());
 
             // user data
             msg.Serialize(writer);
-
-            writer.WriteBool(hasCallback);
-
-            if (hasCallback)
-            {
-                int serialNumber = _counter.Next();
-
-                _pendingResponseCallbacks.Add(serialNumber, new MsgResponseCallback { ResponseCallback = response });
-
-                writer.WriteInt(serialNumber);
-            }
         }
 
         private static Dictionary<Type, IJettMessage> GetReadersAndWritersForMessages(params string[] extraAsms)
@@ -244,18 +187,7 @@ namespace jettnet
 
             var msgHandler = _messageHandlers[messageId];
 
-            _msgHandlerCallbackQueue.Enqueue(new MsgHandlerCallback { Handler = msgHandler, Data = data, Reader = reader });
-
-            HandleResponse(reader, data.ClientId);
-        }
-
-        public void HandleIncomingResponseMessage(JettReader reader, ConnectionData data)
-        {
-            int serialNumber = reader.ReadInt();
-
-            var response = _pendingResponseCallbacks[serialNumber];
-
-            _msgResponseQueue.Enqueue(response);
+            msgHandler.Invoke(reader, data);
         }
 
         #endregion Handlers

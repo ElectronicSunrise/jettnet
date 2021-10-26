@@ -58,24 +58,6 @@ namespace jettnet // v1.3
         public ushort Port;
     }
 
-    public struct ServerCallback
-    {
-        public Action<ConnectionData> Method;
-        public ConnectionData Data;
-    }
-
-    public struct MsgResponseCallback
-    {
-        public Action ResponseCallback;
-    }
-
-    public struct MsgHandlerCallback
-    {
-        public Action<JettReader, ConnectionData> Handler;
-        public JettReader Reader;
-        public ConnectionData Data;
-    }
-
     public enum JettHeader : byte
     {
         MessageReceived = 3,
