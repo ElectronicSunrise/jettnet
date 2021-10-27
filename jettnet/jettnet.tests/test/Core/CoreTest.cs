@@ -1,8 +1,8 @@
-﻿using FluentAssertions;
+﻿﻿using FluentAssertions;
 using FluentAssertions.Execution;
 using Xunit;
 
-namespace jettnet.tests.test.Core
+namespace jettnet.tests
 {
     public class CoreTest
     {
@@ -37,7 +37,8 @@ namespace jettnet.tests.test.Core
             byte[] value = {69, 4, 2, 0, 69};
             writer.WriteBytes(value);
 
-            var expectedLength = 4 + 5; // int length plus data
+            var expectedLength = sizeof(int) + value.Length;
+
             using (new AssertionScope())
             {
                 writer.Buffer.Should().NotBeEmpty()
