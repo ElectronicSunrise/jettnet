@@ -5,7 +5,9 @@ VisualStudioVersion = 16.0.31205.134
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jettnet", "jettnet\jettnet.csproj", "{584ADDC7-BC6E-4087-B094-68F012F51CFC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "jettnet.tests", "jettnet.tests\jettnet.tests.csproj", "{B7755147-D394-41AA-8213-5D39A921C3D0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jettnet.tests", "jettnet.tests\jettnet.tests.csproj", "{B7755147-D394-41AA-8213-5D39A921C3D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "jettnet.benchmarks", "jettnet.benchmarks\jettnet.benchmarks.csproj", "{D34DBE4B-075E-49C2-A3F2-7C449F585969}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{B7755147-D394-41AA-8213-5D39A921C3D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B7755147-D394-41AA-8213-5D39A921C3D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B7755147-D394-41AA-8213-5D39A921C3D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D34DBE4B-075E-49C2-A3F2-7C449F585969}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D34DBE4B-075E-49C2-A3F2-7C449F585969}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D34DBE4B-075E-49C2-A3F2-7C449F585969}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D34DBE4B-075E-49C2-A3F2-7C449F585969}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
