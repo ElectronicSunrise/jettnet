@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -51,11 +53,43 @@ namespace jettnet // v1.3
         public const int Unreliable = 1;
     }
 
-    public struct ConnectionData
+    public struct ConnectionData : IEquatable<ConnectionData>
     {
         public int ClientId;
         public string Address;
         public ushort Port;
+
+        sealed class EqualityComparer : IEqualityComparer<ConnectionData>
+        {
+            public bool Equals(ConnectionData x, ConnectionData y)
+            {
+                return x.ClientId == y.ClientId &&
+                       x.Address == y.Address   &&
+                       x.Port == y.Port;
+            }
+
+            public int GetHashCode(ConnectionData obj)
+            {
+                unchecked
+                {
+                    return (obj.ClientId * 397) ^ obj.Port;
+                }
+            }
+        }
+
+        public static IEqualityComparer<ConnectionData> Comparer { get; } = new EqualityComparer();
+
+        public bool Equals(ConnectionData other) => ClientId == other.ClientId && Address == other.Address && Port == other.Port;
+
+        public override bool Equals(object obj) => obj is ConnectionData other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (ClientId * 397) ^ Port;
+            }
+        }
     }
 
     public enum JettHeader : byte
