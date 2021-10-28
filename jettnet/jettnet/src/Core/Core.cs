@@ -347,6 +347,26 @@ namespace jettnet // v1.3
             }
         }
 
+        public static void WriteIntArray(this JettWriter writer, int[] values)
+        {
+            writer.WriteInt(values.Length);
+
+            for (int i = 0; i < values.Length; i++)
+                writer.WriteInt(values[i]);
+        }
+
+        public static int[] ReadIntArray(this JettReader reader)
+        {
+            int length = reader.ReadInt();
+
+            int[] values = new int[length];
+
+            for (int i = 0; i < values.Length; i++)
+                values[i] = reader.ReadInt();
+
+            return values;
+        }
+
         public static int ReadInt(this JettReader reader)
         {
             int value = BitConverter.ToInt32(reader.Buffer.Array, reader.Position);
