@@ -134,7 +134,7 @@ namespace jettnet
                 {
                     case JettHeader.Message:
                         // this is client side, client will always receive data from server so no need to pass in data
-                        _messenger.HandleIncomingMessage(reader, new ConnectionData());
+                        _messenger.HandleIncomingMessage(reader, default);
                         break;
                 }
             }

@@ -46,7 +46,7 @@ namespace jettnet
             }
         }
 
-        public void SendMessage(IJettMessage msg, int connectionId, bool isServer, int channel = JettChannels.Reliable)
+        public void SendMessage(IJettMessage msg, int connId, bool isServer, int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
@@ -55,28 +55,7 @@ namespace jettnet
                 if (!isServer)
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
                 else
-                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connectionId, channel);
-            }
-        }
-
-        private void HandleResponse(JettReader reader, int connId)
-        {
-            bool hasCallback = reader.ReadBool();
-
-            if (hasCallback)
-            {
-                int serialNumber = reader.ReadInt();
-
-                // tell peer we received their msg
-                using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.MessageReceived))
-                {
-                    writer.WriteInt(serialNumber);
-
-                    if (!_isServer)
-                        _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), JettChannels.Reliable);
-                    else
-                        _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId, JettChannels.Reliable);
-                }
+                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId, channel);
             }
         }
 

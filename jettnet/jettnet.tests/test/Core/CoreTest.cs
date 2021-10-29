@@ -1,5 +1,6 @@
 ﻿﻿using FluentAssertions;
 using FluentAssertions.Execution;
+using System;
 using Xunit;
 
 namespace jettnet.tests
@@ -13,6 +14,40 @@ namespace jettnet.tests
             var expected = 1895833957;
             
             Assert.Equal(expected, instance.ToID());
+        }
+
+        [Fact]
+        public void JettReaderWriter_ArraySegmentByte()
+        {
+            // write
+
+            JettWriter writer = new JettWriter();
+            byte[] value = { 69, 4, 2, 0, 69 };
+
+            ArraySegment<byte> segment = new ArraySegment<byte>(value, 0, value.Length);
+
+            writer.WriteByteArraySegment(segment);
+
+            using (new AssertionScope())
+            {
+                var expectedInt = BitConverter.GetBytes(value.Length);
+
+                writer.Buffer.Should().NotBeEmpty().And.StartWith(expectedInt);
+
+                writer.Position.Should().Be(sizeof(int) + segment.Count);
+            }
+            
+            // read
+
+            JettReader reader = new JettReader();
+            reader.Buffer = writer.Buffer;
+
+            ArraySegment<byte> readData = reader.ReadByteArraySegment();
+
+            using (new AssertionScope())
+            {
+                Assert.Equal(segment, readData);
+            }
         }
 
         [Fact]

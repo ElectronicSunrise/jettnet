@@ -42,9 +42,6 @@ using System.Text;
 
 // [ user serialized data ] 
 
-// [ callback flag ] (1 byte)
-// [ serial number ] (4 bytes, or 0 if callback flag = false) 
-
 namespace jettnet // v1.3
 {
     public static class JettChannels
@@ -223,6 +220,22 @@ namespace jettnet // v1.3
 
     public static class JettReadWriteExtensions
     {
+        public static void WriteByteArraySegment(this JettWriter writer, ArraySegment<byte> segment)
+        {
+            writer.WriteInt(segment.Count);
+
+            for (int i = segment.Offset; i < segment.Count; i++)
+            {
+                writer.WriteByte(segment.Array[i]);
+            }
+        }
+
+        public static ArraySegment<byte> ReadByteArraySegment(this JettReader reader)
+        {
+            int count = reader.ReadInt();
+            return new ArraySegment<byte>(reader.Buffer.Array, reader.Position, count);
+        }
+
         public static void WriteByte(this JettWriter writer, byte value)
         {
             writer.Buffer.Array[writer.Position] = value;
