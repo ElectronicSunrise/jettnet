@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace kcp2k
+namespace kcp
 {
     public static partial class Utils
     {

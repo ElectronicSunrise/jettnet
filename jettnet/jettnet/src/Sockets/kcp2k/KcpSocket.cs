@@ -1,4 +1,4 @@
-﻿using kcp2k;
+﻿using kcp;
 using System;
 using System.Collections.Generic;
 using System.Net;

@@ -2,7 +2,7 @@
 // for use in Mirror, DOTSNET, testing, etc.
 using System;
 
-namespace kcp2k
+namespace kcp
 {
     public class KcpClient
     {
