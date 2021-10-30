@@ -233,7 +233,12 @@ namespace jettnet // v1.3
         public static ArraySegment<byte> ReadByteArraySegment(this JettReader reader)
         {
             int count = reader.ReadInt();
-            return new ArraySegment<byte>(reader.Buffer.Array, reader.Position, count);
+
+            byte[] dest = new byte[count];
+
+            Buffer.BlockCopy(reader.Buffer.Array, reader.Position, dest, 0, count);
+
+            return new ArraySegment<byte>(dest);
         }
 
         public static void WriteByte(this JettWriter writer, byte value)
