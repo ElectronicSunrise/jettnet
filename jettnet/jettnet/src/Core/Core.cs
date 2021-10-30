@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -40,9 +42,6 @@ using System.Text;
 
 // [ user serialized data ] 
 
-// [ callback flag ] (1 byte)
-// [ serial number ] (4 bytes, or 0 if callback flag = false) 
-
 namespace jettnet // v1.3
 {
     public static class JettChannels
@@ -51,11 +50,43 @@ namespace jettnet // v1.3
         public const int Unreliable = 1;
     }
 
-    public struct ConnectionData
+    public struct ConnectionData : IEquatable<ConnectionData>
     {
         public int ClientId;
         public string Address;
         public ushort Port;
+
+        sealed class EqualityComparer : IEqualityComparer<ConnectionData>
+        {
+            public bool Equals(ConnectionData x, ConnectionData y)
+            {
+                return x.ClientId == y.ClientId &&
+                       x.Address == y.Address   &&
+                       x.Port == y.Port;
+            }
+
+            public int GetHashCode(ConnectionData obj)
+            {
+                unchecked
+                {
+                    return (obj.ClientId * 397) ^ obj.Port;
+                }
+            }
+        }
+
+        public static IEqualityComparer<ConnectionData> Comparer { get; } = new EqualityComparer();
+
+        public bool Equals(ConnectionData other) => ClientId == other.ClientId && Address == other.Address && Port == other.Port;
+
+        public override bool Equals(object obj) => obj is ConnectionData other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (ClientId * 397) ^ Port;
+            }
+        }
     }
 
     public enum JettHeader : byte
@@ -189,6 +220,29 @@ namespace jettnet // v1.3
 
     public static class JettReadWriteExtensions
     {
+        public static void WriteByteArraySegment(this JettWriter writer, ArraySegment<byte> segment)
+        {
+            writer.WriteInt(segment.Count);
+
+            for (int i = segment.Offset; i < segment.Count; i++)
+            {
+                writer.WriteByte(segment.Array[i]);
+            }
+        }
+
+        public static ArraySegment<byte> ReadByteArraySegment(this JettReader reader)
+        {
+            int count = reader.ReadInt();
+
+            byte[] dest = new byte[count];
+
+            Buffer.BlockCopy(reader.Buffer.Array, reader.Position, dest, 0, count);
+
+            reader.Position += count;
+
+            return new ArraySegment<byte>(dest);
+        }
+
         public static void WriteByte(this JettWriter writer, byte value)
         {
             writer.Buffer.Array[writer.Position] = value;
@@ -311,6 +365,26 @@ namespace jettnet // v1.3
                     writer.Position += 4;
                 }
             }
+        }
+
+        public static void WriteIntArray(this JettWriter writer, int[] values)
+        {
+            writer.WriteInt(values.Length);
+
+            for (int i = 0; i < values.Length; i++)
+                writer.WriteInt(values[i]);
+        }
+
+        public static int[] ReadIntArray(this JettReader reader)
+        {
+            int length = reader.ReadInt();
+
+            int[] values = new int[length];
+
+            for (int i = 0; i < values.Length; i++)
+                values[i] = reader.ReadInt();
+
+            return values;
         }
 
         public static int ReadInt(this JettReader reader)

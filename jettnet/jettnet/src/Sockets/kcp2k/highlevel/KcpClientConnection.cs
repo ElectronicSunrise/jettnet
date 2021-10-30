@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace kcp2k
+namespace kcp
 {
     public class KcpClientConnection : KcpConnection
     {

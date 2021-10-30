@@ -3,7 +3,7 @@
 // (this way we don't have to depend on UnityEngine)
 using System;
 
-namespace kcp2k
+namespace kcp
 {
     public static class Log
     {

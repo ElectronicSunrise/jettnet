@@ -1,6 +1,7 @@
-﻿using kcp2k;
+﻿using kcp;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 
 namespace jettnet.sockets
@@ -11,7 +12,7 @@ namespace jettnet.sockets
         private KcpClient _client;
 
         private Dictionary<int, ConnectionData> _connectionsByID = new Dictionary<int, ConnectionData>();
-        private Dictionary<string, ConnectionData> _connectionsByAddress = new Dictionary<string, ConnectionData>();
+        private List<IPEndPoint> _connections = new List<IPEndPoint>();
 
         public override void StartClient(string address, ushort port)
         {
@@ -34,7 +35,7 @@ namespace jettnet.sockets
 
         public override bool AddressExists(string addr)
         {
-            return _connectionsByAddress.ContainsKey(addr);
+            return _connections.Where(x => x.Address.ToString() == addr).FirstOrDefault() != null;
         }
 
         public override void DisconnectClient(int id)
@@ -60,7 +61,7 @@ namespace jettnet.sockets
             };
 
             _connectionsByID.Add(id, data);
-            _connectionsByAddress.Add(addr, data);
+            _connections.Add(ep);
 
             ServerConnected?.Invoke(data);
         }
@@ -68,7 +69,7 @@ namespace jettnet.sockets
         private void ServerDisconnect(int id)
         {
             ServerDisconnected?.Invoke(_connectionsByID[id]);
-            _connectionsByAddress.Remove(_connectionsByID[id].Address);
+            _connections.Remove(_server.connections[id].GetRemoteEndPoint() as IPEndPoint);
             _connectionsByID.Remove(id);
         }
 

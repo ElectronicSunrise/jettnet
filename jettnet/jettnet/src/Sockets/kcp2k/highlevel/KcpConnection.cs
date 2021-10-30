@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 
-namespace kcp2k
+namespace kcp
 {
     enum KcpState { Connected, Authenticated, Disconnected }
 

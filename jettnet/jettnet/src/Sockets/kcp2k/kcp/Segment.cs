@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace kcp2k
+namespace kcp
 {
     // KCP Segment Definition
     internal class Segment

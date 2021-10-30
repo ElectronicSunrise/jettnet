@@ -103,6 +103,8 @@ namespace jettnet
             }
         }
 
+        public ConnectionData GetConnection(int id) => _socket.GetDataForClient(id);
+
         #endregion
 
         #region Callbacks

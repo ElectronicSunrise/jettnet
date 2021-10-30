@@ -3,7 +3,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace kcp2k
+namespace kcp
 {
     public class Kcp
     {
