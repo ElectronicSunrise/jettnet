@@ -152,6 +152,9 @@ namespace jettnet
                 if (item.ContainsGenericParameters || item == type)
                     continue;
 
+                if (foundPairs.ContainsKey(item))
+                    continue;
+
                 var instance = Activator.CreateInstance(item) as IJettMessage;
 
                 foundPairs.Add(item, instance);
