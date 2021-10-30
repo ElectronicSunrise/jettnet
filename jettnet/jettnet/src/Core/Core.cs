@@ -238,6 +238,8 @@ namespace jettnet // v1.3
 
             Buffer.BlockCopy(reader.Buffer.Array, reader.Position, dest, 0, count);
 
+            reader.Position += count;
+
             return new ArraySegment<byte>(dest);
         }
 

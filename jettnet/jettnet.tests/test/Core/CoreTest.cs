@@ -47,6 +47,8 @@ namespace jettnet.tests
             using (new AssertionScope())
             {
                 Assert.Equal(segment, readData);
+
+                reader.Position.Should().Be(sizeof(int) + segment.Count);
             }
         }
 
