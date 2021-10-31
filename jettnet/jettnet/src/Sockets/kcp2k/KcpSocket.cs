@@ -20,6 +20,10 @@ namespace jettnet.sockets
                                     ClientDataRecv, 
                                     ClientDisconnected);
 
+            Log.Error = (_) => { };
+            Log.Warning = (_) => { };
+            Log.Info = (_) => { };
+
             _client.Connect(address, port, true, 10, 0, false, 4096, 4096, 5000);
         }
 
@@ -29,6 +33,10 @@ namespace jettnet.sockets
                                     ServerDataRecv,
                                     ServerDisconnect,
                                     true, true, 10, 0, false, 4096, 4096, 5000);
+          
+            Log.Error = (_) => { };
+            Log.Warning = (_) => { };
+            Log.Info = (_) => { };
 
             _server.Start(port);
         }
@@ -43,9 +51,16 @@ namespace jettnet.sockets
             _server?.Disconnect(id);
         }
 
-        public override ConnectionData GetDataForClient(int id)
+        public override bool TryGetConnection(int id, out ConnectionData connection)
         {
-            return _connectionsByID[id];
+            if(_connectionsByID.TryGetValue(id, out ConnectionData data))
+            {
+                connection = data;
+                return true;
+            }
+
+            connection = default;
+            return false;   
         }
 
         private void ServerConnect(int id)

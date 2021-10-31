@@ -28,7 +28,7 @@ namespace jettnet
         // server encounters an error caused by a client
         public Action<int, Exception> OnServerError;
 
-        public abstract ConnectionData GetDataForClient(int id);
+        public abstract bool TryGetConnection(int id, out ConnectionData connection);
 
         public abstract void StartClient(string address, ushort port);
 
