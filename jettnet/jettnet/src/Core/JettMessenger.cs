@@ -163,8 +163,7 @@ namespace jettnet
 
             if(_messageHandlers.TryGetValue(messageId, out Action<JettReader, ConnectionData> handler))
             {
-                var msgHandler = _messageHandlers[messageId];
-                msgHandler.Invoke(reader, data);
+                handler.Invoke(reader, data);
             }
             else
             {
