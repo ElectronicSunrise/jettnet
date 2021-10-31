@@ -421,6 +421,8 @@ namespace jettnet // v1.3
                         Buffer.MemoryCopy(dataPtr, unmanagedPtr, sizeof(T), sizeof(T));
                     }
                 }
+
+                reader.Position += sizeof(T);
             }
 
         }
