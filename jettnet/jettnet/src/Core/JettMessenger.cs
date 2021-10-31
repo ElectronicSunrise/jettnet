@@ -161,9 +161,16 @@ namespace jettnet
         {
             int messageId = reader.ReadInt();
 
-            var msgHandler = _messageHandlers[messageId];
-
-            msgHandler.Invoke(reader, data);
+            if(_messageHandlers.TryGetValue(messageId, out Action<JettReader, ConnectionData> handler))
+            {
+                var msgHandler = _messageHandlers[messageId];
+                msgHandler.Invoke(reader, data);
+            }
+            else
+            {
+                _logger.Log("Client sent invalid data, removing them from server...", LogLevel.Error);
+                _socket.DisconnectClient(data.ClientId);
+            }
         }
 
         #endregion Handlers
