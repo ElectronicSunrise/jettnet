@@ -51,9 +51,16 @@ namespace jettnet.sockets
             _server?.Disconnect(id);
         }
 
-        public override ConnectionData GetDataForClient(int id)
+        public override bool TryGetConnection(int id, out ConnectionData connection)
         {
-            return _connectionsByID[id];
+            if(_connectionsByID.TryGetValue(id, out ConnectionData data))
+            {
+                connection = data;
+                return true;
+            }
+
+            connection = default;
+            return false;   
         }
 
         private void ServerConnect(int id)
