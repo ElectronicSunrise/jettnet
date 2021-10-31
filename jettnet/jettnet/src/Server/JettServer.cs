@@ -109,7 +109,7 @@ namespace jettnet
             }
         }
 
-        public ConnectionData GetConnection(int id) => _socket.GetDataForClient(id);
+        public Socket GetActiveSocket() => _socket;
 
         #endregion
 
@@ -144,7 +144,10 @@ namespace jettnet
                 switch (msgId)
                 {
                     case JettHeader.Message:
-                        _messenger.HandleIncomingMessage(reader, _socket.GetDataForClient(connId));
+
+                        if(_socket.TryGetConnection(connId, out ConnectionData connection))
+                            _messenger.HandleIncomingMessage(reader, connection);
+
                         break;
                 }
             }
