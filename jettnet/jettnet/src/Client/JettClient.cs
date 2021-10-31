@@ -22,7 +22,7 @@ namespace jettnet
             _logger = logger ?? new Logger();
             _socket = socket ?? new KcpSocket();
 
-            _messenger = new JettMessenger(_socket, _logger, false, extraMessageAsms);
+            _messenger = new JettMessenger(_socket, _logger, extraMessageAsms);
         }
 
         public void Shutdown()
@@ -88,12 +88,18 @@ namespace jettnet
             _socket.StartClient(address, port);
         }
 
-        public void PollData()
+        public void FetchIncoming()
         {
             if (_active)
             {
                 _socket.FetchIncoming();
+            }
+        }
 
+        public void SendOutgoing()
+        {
+            if (_active)
+            {
                 _socket.SendOutgoing();
             }
         }

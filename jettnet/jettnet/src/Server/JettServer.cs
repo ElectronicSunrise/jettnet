@@ -24,7 +24,7 @@ namespace jettnet
             _logger = logger ?? new Logger();
             _port = port;
 
-            _messenger = new JettMessenger(_socket, _logger, true, extraMessageAsms);
+            _messenger = new JettMessenger(_socket, _logger, extraMessageAsms);
         }
 
         #region Sending
@@ -49,7 +49,7 @@ namespace jettnet
         #region Registering
 
         public void Register<T>(Action<T, ConnectionData> msgHandler) where T : struct, IJettMessage<T>
-        { 
+        {
             _messenger.RegisterInternal(msgHandler);
         }
 
@@ -93,12 +93,18 @@ namespace jettnet
             _socket.StartServer(_port);
         }
 
-        public void PollData()
+        public void FetchIncoming()
         {
             if (Active)
             {
                 _socket.FetchIncoming();
+            }
+        }
 
+        public void SendOutgoing()
+        {
+            if (Active)
+            {
                 _socket.SendOutgoing();
             }
         }

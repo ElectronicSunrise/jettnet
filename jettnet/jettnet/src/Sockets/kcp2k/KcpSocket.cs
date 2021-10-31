@@ -20,6 +20,10 @@ namespace jettnet.sockets
                                     ClientDataRecv, 
                                     ClientDisconnected);
 
+            Log.Error = (_) => { };
+            Log.Warning = (_) => { };
+            Log.Info = (_) => { };
+
             _client.Connect(address, port, true, 10, 0, false, 4096, 4096, 5000);
         }
 
@@ -29,6 +33,10 @@ namespace jettnet.sockets
                                     ServerDataRecv,
                                     ServerDisconnect,
                                     true, true, 10, 0, false, 4096, 4096, 5000);
+          
+            Log.Error = (_) => { };
+            Log.Warning = (_) => { };
+            Log.Info = (_) => { };
 
             _server.Start(port);
         }

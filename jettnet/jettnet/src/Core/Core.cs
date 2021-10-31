@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -91,7 +90,6 @@ namespace jettnet // v1.3
 
     public enum JettHeader : byte
     {
-        MessageReceived = 3,
         Message = 4
     }
 
@@ -104,12 +102,6 @@ namespace jettnet // v1.3
             var result = _crypto.ComputeHash(Encoding.UTF8.GetBytes(s));
             return BitConverter.ToInt32(result, 0);
         }
-    }
-
-    public class Counter
-    {
-        private int _internalCount = int.MinValue;
-        public int Next() => _internalCount++;
     }
 
     // https://docs.microsoft.com/en-us/dotnet/standard/collections/thread-safe/how-to-create-an-object-pool

@@ -1,6 +1,5 @@
 ﻿using jettnet.logging;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -14,17 +13,12 @@ namespace jettnet
 
         private Socket _socket;
         private Logger _logger;
-        private Counter _counter;
 
-        private bool _isServer;
-
-        public JettMessenger(Socket socket, Logger logger, bool isServer, params string[] messageAsms)
+        public JettMessenger(Socket socket, Logger logger, params string[] messageAsms)
         {
             _messageReaders = GetReadersAndWritersForMessages(messageAsms);
             _socket = socket;
             _logger = logger;
-            _isServer = isServer;
-            _counter = new Counter();
 
 #if UNITY_64
             UnityEngine.Application.runInBackground = true;
