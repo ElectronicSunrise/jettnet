@@ -11,7 +11,7 @@ namespace jettnet.benchmarks.bench
     public class ReadsAndWrites
     {
         //[Params(1000, 10000)]
-        [Params(100)]
+        [Params(1000)]
         public int TestIterations;
 
         private JettReader _reader;
