@@ -10,7 +10,7 @@ namespace kcp
         //            segments and having a buffer smaller than MTU would
         //            silently drop excess data.
         //            => we need the MTU to fit channel + message!
-        readonly byte[] rawReceiveBuffer = new byte[Kcp.MTU_DEF];
+        private readonly byte[] rawReceiveBuffer = new byte[Kcp.MTU_DEF];
 
         // helper function to resolve host to IPAddress
         public static bool ResolveHostname(string hostname, out IPAddress[] addresses)
@@ -31,18 +31,24 @@ namespace kcp
         // EndPoint & Receive functions can be overwritten for where-allocation:
         // https://github.com/vis2k/where-allocation
         // NOTE: Client's SendTo doesn't allocate, don't need a virtual.
-        protected virtual void CreateRemoteEndPoint(IPAddress[] addresses, ushort port) =>
+        protected virtual void CreateRemoteEndPoint(IPAddress[] addresses, ushort port)
+        {
             remoteEndPoint = new IPEndPoint(addresses[0], port);
+        }
 
-        protected virtual int ReceiveFrom(byte[] buffer) =>
-            socket.ReceiveFrom(buffer, ref remoteEndPoint);
+        protected virtual int ReceiveFrom(byte[] buffer)
+        {
+            return socket.ReceiveFrom(buffer, ref remoteEndPoint);
+        }
 
-        public void Connect(string host, ushort port, bool noDelay, uint interval = Kcp.INTERVAL, int fastResend = 0, bool congestionWindow = true, uint sendWindowSize = Kcp.WND_SND, uint receiveWindowSize = Kcp.WND_RCV, int timeout = DEFAULT_TIMEOUT)
+        public void Connect(string host, ushort port, bool noDelay, uint interval = Kcp.INTERVAL, int fastResend = 0,
+                            bool congestionWindow = true, uint sendWindowSize = Kcp.WND_SND,
+                            uint receiveWindowSize = Kcp.WND_RCV, int timeout = DEFAULT_TIMEOUT)
         {
             Log.Info($"KcpClient: connect to {host}:{port}");
 
             // try resolve host name
-            if (ResolveHostname(host, out IPAddress[] addresses))
+            if (ResolveHostname(host, out var addresses))
             {
                 // create remote endpoint
                 CreateRemoteEndPoint(addresses, port);
@@ -60,7 +66,10 @@ namespace kcp
                 RawReceive();
             }
             // otherwise call OnDisconnected to let the user know.
-            else OnDisconnected();
+            else
+            {
+                OnDisconnected();
+            }
         }
 
 
@@ -70,7 +79,6 @@ namespace kcp
             try
             {
                 if (socket != null)
-                {
                     while (socket.Poll(0, SelectMode.SelectRead))
                     {
                         int msgLength = ReceiveFrom(rawReceiveBuffer);
@@ -89,10 +97,11 @@ namespace kcp
                             Disconnect();
                         }
                     }
-                }
             }
             // this is fine, the socket might have been closed in the other end
-            catch (SocketException) {}
+            catch (SocketException)
+            {
+            }
         }
 
         protected override void Dispose()

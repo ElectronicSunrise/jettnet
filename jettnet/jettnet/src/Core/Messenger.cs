@@ -1,24 +1,25 @@
-﻿using jettnet.logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using jettnet.logging;
 
 namespace jettnet
 {
-    public class JettMessenger
+    public class Messenger
     {
+        private readonly Logger _logger;
+
         private readonly Dictionary<int, Action<JettReader, ConnectionData>> _messageHandlers =
             new Dictionary<int, Action<JettReader, ConnectionData>>();
 
         private readonly Dictionary<Type, IJettMessage> _messageReaders;
 
         private readonly Socket _socket;
-        private readonly Logger _logger;
 
-        public JettMessenger(Socket socket, Logger logger, params string[] messageAsms)
+        public Messenger(Socket socket, Logger logger, params string[] extraMessageAssemblies)
         {
-            _messageReaders = GetReadersAndWritersForMessages(messageAsms);
+            _messageReaders = GetReadersAndWritersForMessages(extraMessageAssemblies);
             _socket         = socket;
             _logger         = logger;
 
@@ -30,7 +31,7 @@ namespace jettnet
         #region Sending
 
         public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId,
-            int channel = JettChannels.Reliable)
+                                 int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
@@ -40,7 +41,7 @@ namespace jettnet
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
                 else
                     _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId,
-                        channel);
+                                       channel);
             }
         }
 
@@ -54,7 +55,7 @@ namespace jettnet
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
                 else
                     _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId,
-                        channel);
+                                       channel);
             }
         }
 
@@ -70,7 +71,7 @@ namespace jettnet
             {
                 try
                 {
-                    var type = typeof(T);
+                    Type type = typeof(T);
 
                     T msg = ((IJettMessage<T>) _messageReaders[type]).Deserialize(reader);
 
@@ -79,8 +80,8 @@ namespace jettnet
                 catch (Exception e)
                 {
                     _logger.Log(
-                        $"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}",
-                        LogLevel.Error);
+                                $"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}",
+                                LogLevel.Error);
                 }
             };
         }
@@ -101,7 +102,7 @@ namespace jettnet
                 catch (Exception e)
                 {
                     _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}, Exception: {e}",
-                        LogLevel.Error);
+                                LogLevel.Error);
                 }
             };
         }
@@ -128,24 +129,23 @@ namespace jettnet
             msg.Serialize(writer);
         }
 
-        private static Dictionary<Type, IJettMessage> GetReadersAndWritersForMessages(params string[] extraAsms)
+        private static Dictionary<Type, IJettMessage> GetReadersAndWritersForMessages(params string[] extraAssemblies)
         {
             Type type = typeof(IJettMessage);
 
             var assemblies = AppDomain.CurrentDomain.GetAssemblies().ToList();
 
-            for (int i = 0; i < extraAsms.Length; i++)
+            for (int i = 0; i < extraAssemblies.Length; i++)
             {
-                string   item = extraAsms[i];
+                string   item = extraAssemblies[i];
                 Assembly asm  = Assembly.Load(item);
 
-                if (item != null)
-                    assemblies.Add(asm);
+                assemblies.Add(asm);
             }
 
             var types = assemblies
-                .SelectMany(s => s.GetTypes())
-                .Where(x => type.IsAssignableFrom(x)).ToList();
+                        .SelectMany(s => s.GetTypes())
+                        .Where(x => type.IsAssignableFrom(x)).ToList();
 
             var foundPairs = new Dictionary<Type, IJettMessage>();
 
@@ -155,6 +155,8 @@ namespace jettnet
                 if (item.ContainsGenericParameters || item == type)
                     continue;
 
+                // unity handles loading differently
+                // so this prevents adding the same type twice
                 if (foundPairs.ContainsKey(item))
                     continue;
 

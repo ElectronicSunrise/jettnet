@@ -1,4 +1,5 @@
 ﻿// Pool to avoid allocations (from libuv2k & Mirror)
+
 using System;
 using System.Collections.Generic;
 
@@ -6,20 +7,20 @@ namespace kcp
 {
     public class Pool<T>
     {
-        // Mirror is single threaded, no need for concurrent collections
-        readonly Stack<T> objects = new Stack<T>();
-
         // some types might need additional parameters in their constructor, so
         // we use a Func<T> generator
-        readonly Func<T> objectGenerator;
+        private readonly Func<T> objectGenerator;
 
         // some types might need additional cleanup for returned objects
-        readonly Action<T> objectResetter;
+        private readonly Action<T> objectResetter;
+
+        // Mirror is single threaded, no need for concurrent collections
+        private readonly Stack<T> objects = new Stack<T>();
 
         public Pool(Func<T> objectGenerator, Action<T> objectResetter, int initialCapacity)
         {
             this.objectGenerator = objectGenerator;
-            this.objectResetter = objectResetter;
+            this.objectResetter  = objectResetter;
 
             // allocate an initial pool so we have fewer (if any)
             // allocations in the first few frames (or seconds).
@@ -27,8 +28,14 @@ namespace kcp
                 objects.Push(objectGenerator());
         }
 
+        // count to see how many objects are in the pool. useful for tests.
+        public int Count => objects.Count;
+
         // take an element from the pool, or create a new one if empty
-        public T Take() => objects.Count > 0 ? objects.Pop() : objectGenerator();
+        public T Take()
+        {
+            return objects.Count > 0 ? objects.Pop() : objectGenerator();
+        }
 
         // return an element to the pool
         public void Return(T item)
@@ -38,9 +45,9 @@ namespace kcp
         }
 
         // clear the pool
-        public void Clear() => objects.Clear();
-
-        // count to see how many objects are in the pool. useful for tests.
-        public int Count => objects.Count;
+        public void Clear()
+        {
+            objects.Clear();
+        }
     }
 }

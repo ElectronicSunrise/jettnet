@@ -1,28 +1,30 @@
-﻿using kcp;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using kcp;
 
 namespace jettnet.sockets
 {
     public class KcpSocket : Socket
     {
-        private KcpServer _server;
-        private KcpClient _client;
+        private readonly List<IPEndPoint> _connections = new List<IPEndPoint>();
 
-        private Dictionary<int, ConnectionData> _connectionsByID = new Dictionary<int, ConnectionData>();
-        private List<IPEndPoint> _connections = new List<IPEndPoint>();
+        private readonly Dictionary<int, ConnectionData> _connectionsById = new Dictionary<int, ConnectionData>();
+        private          KcpClient                       _client;
+        private          KcpServer                       _server;
 
         public override void StartClient(string address, ushort port)
         {
-            _client = new KcpClient(ClientConnected, 
-                                    ClientDataRecv, 
+            _client = new KcpClient(ClientConnected,
+                                    ClientDataRecv,
                                     ClientDisconnected);
 
-            Log.Error = (_) => { };
-            Log.Warning = (_) => { };
-            Log.Info = (_) => { };
+            // wrapper handles logging
+            // so kcp can stfu,
+            // unless error related
+            Log.Warning = _ => { };
+            Log.Info    = _ => { };
 
             _client.Connect(address, port, true, 10, 0, false, 4096, 4096, 5000);
         }
@@ -33,17 +35,17 @@ namespace jettnet.sockets
                                     ServerDataRecv,
                                     ServerDisconnect,
                                     true, true, 10, 0, false, 4096, 4096, 5000);
-          
-            Log.Error = (_) => { };
-            Log.Warning = (_) => { };
-            Log.Info = (_) => { };
+
+            Log.Error   = _ => { };
+            Log.Warning = _ => { };
+            Log.Info    = _ => { };
 
             _server.Start(port);
         }
 
-        public override bool AddressExists(string addr)
+        public override bool AddressExists(string address)
         {
-            return _connections.Where(x => x.Address.ToString() == addr).FirstOrDefault() != null;
+            return _connections.FirstOrDefault(x => x.Address.ToString() == address) != null;
         }
 
         public override void DisconnectClient(int id)
@@ -53,34 +55,34 @@ namespace jettnet.sockets
 
         public override bool TryGetConnection(int id, out ConnectionData connection)
         {
-            if(_connectionsByID.TryGetValue(id, out ConnectionData data))
+            if (_connectionsById.TryGetValue(id, out ConnectionData data))
             {
                 connection = data;
                 return true;
             }
 
             connection = default;
-            return false;   
+            return false;
         }
 
         private void ServerConnect(int id)
         {
-            var ep = _server.connections[id].GetRemoteEndPoint() as IPEndPoint;
-            var addr = ep.Address.ToString();
+            if (!(_server.connections[id].GetRemoteEndPoint() is IPEndPoint remoteEndPoint)) return;
+            string address = remoteEndPoint.Address.ToString();
 
-            var data = new ConnectionData(id, addr, (ushort)ep.Port);
+            ConnectionData data = new ConnectionData(id, address, (ushort) remoteEndPoint.Port);
 
-            _connectionsByID.Add(id, data);
-            _connections.Add(ep);
+            _connectionsById.Add(id, data);
+            _connections.Add(remoteEndPoint);
 
             ServerConnected?.Invoke(data);
         }
 
         private void ServerDisconnect(int id)
         {
-            ServerDisconnected?.Invoke(_connectionsByID[id]);
+            ServerDisconnected?.Invoke(_connectionsById[id]);
             _connections.Remove(_server.connections[id].GetRemoteEndPoint() as IPEndPoint);
-            _connectionsByID.Remove(id);
+            _connectionsById.Remove(id);
         }
 
         public override void FetchIncoming()
@@ -100,7 +102,6 @@ namespace jettnet.sockets
             switch (channel)
             {
                 default:
-                case 0:
                     _client?.Send(data, KcpChannel.Reliable);
                     break;
                 case 1:
@@ -114,7 +115,6 @@ namespace jettnet.sockets
             switch (channel)
             {
                 default:
-                case 0:
                     _server?.Send(connId, data, KcpChannel.Reliable);
                     break;
                 case 1:

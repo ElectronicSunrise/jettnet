@@ -4,14 +4,11 @@ namespace jettnet
 {
     public abstract class Socket
     {
-        // we received client data
-        public Action<int, ArraySegment<byte>> ServerDataRecv;
+        // we connected to a server
+        public Action ClientConnected;
 
         // server sent us data
         public Action<ArraySegment<byte>> ClientDataRecv;
-        
-        // we connected to a server
-        public Action ClientConnected;
 
         // we disconnected from a server
         public Action ClientDisconnected;
@@ -19,14 +16,11 @@ namespace jettnet
         // client joins our server
         public Action<ConnectionData> ServerConnected;
 
+        // we received client data
+        public Action<int, ArraySegment<byte>> ServerDataRecv;
+
         // someone disconnected from out server
         public Action<ConnectionData> ServerDisconnected;
-
-        // client encounters an error
-        public Action<Exception> ClientError;
-
-        // server encounters an error caused by a client
-        public Action<int, Exception> OnServerError;
 
         public abstract bool TryGetConnection(int id, out ConnectionData connection);
 
@@ -42,12 +36,12 @@ namespace jettnet
 
         public abstract void DisconnectClient(int id);
 
-        public abstract bool AddressExists(string addr);
+        public abstract bool AddressExists(string address);
 
         public abstract void StopServer();
 
         public abstract void FetchIncoming();
-        
+
         public abstract void SendOutgoing();
     }
 }

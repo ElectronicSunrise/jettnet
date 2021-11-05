@@ -1,21 +1,16 @@
 ﻿using BenchmarkDotNet.Attributes;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace jettnet.benchmarks.bench
 {
     [MemoryDiagnoser]
     public class ReadsAndWrites
     {
-        //[Params(1000, 10000)]
-        [Params(1000)]
-        public int TestIterations;
+        private readonly JettReader _reader;
 
-        private JettReader _reader;
-        private JettWriter _writer;
+        private readonly JettWriter _writer;
+
+        //[Params(1000, 10000)]
+        [Params(1000)] public int TestIterations;
 
         public ReadsAndWrites()
         {
@@ -26,6 +21,7 @@ namespace jettnet.benchmarks.bench
         }
 
         #region Int
+
         [Benchmark]
         public void WriteInt()
         {
@@ -33,10 +29,7 @@ namespace jettnet.benchmarks.bench
             {
                 _writer.Position = 0;
 
-                for (int j = 0; j < _writer.Buffer.Count / sizeof(int); j++)
-                {
-                    _writer.WriteInt(4369);
-                }
+                for (int j = 0; j < _writer.Buffer.Count / sizeof(int); j++) _writer.WriteInt(4369);
             }
         }
 
@@ -48,16 +41,14 @@ namespace jettnet.benchmarks.bench
             {
                 _reader.Position = 0;
 
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(int); j++)
-                {
-                    dummy = _reader.ReadInt();
-                }
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(int); j++) dummy = _reader.ReadInt();
             }
         }
 
         #endregion
 
         #region Byte
+
         [Benchmark]
         public void WriteByte()
         {
@@ -66,10 +57,8 @@ namespace jettnet.benchmarks.bench
                 _writer.Position = 0;
 
                 for (int j = 0; j < _writer.Buffer.Count / sizeof(byte); j++)
-                {
                     // 1 in each nibble
                     _writer.WriteByte(17);
-                }
             }
         }
 
@@ -80,15 +69,14 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(byte); j++)
-                {
-                    dummy = _reader.ReadByte();
-                }
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(byte); j++) dummy = _reader.ReadByte();
             }
         }
+
         #endregion
 
         #region Bool
+
         [Benchmark]
         public void WriteBool()
         {
@@ -97,10 +85,8 @@ namespace jettnet.benchmarks.bench
                 _writer.Position = 0;
 
                 for (int j = 0; j < _writer.Buffer.Count / sizeof(bool); j++)
-                {
                     // 1 in each nibble
                     _writer.WriteBool(true);
-                }
             }
         }
 
@@ -111,54 +97,49 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(bool); j++)
-                {
-                    dummy = _reader.ReadBool();
-                }
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(bool); j++) dummy = _reader.ReadBool();
             }
         }
+
         #endregion
 
         #region String
+
         [Benchmark]
         public void WriteString()
         {
             // Better off setup in the constructor, but shouldn't matter much
-            string dummy = "the quick brown fox jumped over the fence";
-            int sizeOfString = dummy.Length * sizeof(char);
-            int sizeOfStringAndLength = sizeOfString + sizeof(int);
+            string dummy                 = "the quick brown fox jumped over the fence";
+            int    sizeOfString          = dummy.Length * sizeof(char);
+            int    sizeOfStringAndLength = sizeOfString + sizeof(int);
 
             for (int i = 0; i < TestIterations; i++)
             {
                 _writer.Position = 0;
 
-                for (int j = 0; j < _writer.Buffer.Count / sizeOfStringAndLength; j++)
-                {
-                    _writer.WriteString(dummy);
-                }
+                for (int j = 0; j < _writer.Buffer.Count / sizeOfStringAndLength; j++) _writer.WriteString(dummy);
             }
         }
 
         [Benchmark]
         public void ReadString()
         {
-            int sizeOfString = "the quick brown fox jumped over the fence".Length * sizeof(char);
+            int sizeOfString          = "the quick brown fox jumped over the fence".Length * sizeof(char);
             int sizeOfStringAndLength = sizeOfString + sizeof(int);
-            
+
             string dummy = default;
 
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                for (int j = 0; j < _reader.Buffer.Count / sizeOfStringAndLength; j++)
-                {
-                    dummy = _reader.ReadString();
-                }
+                for (int j = 0; j < _reader.Buffer.Count / sizeOfStringAndLength; j++) dummy = _reader.ReadString();
             }
         }
+
         #endregion
 
         #region Bytes
+
         [Benchmark]
         public void WriteBytes()
         {
@@ -179,12 +160,14 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                dummy = _reader.ReadBytes();
+                dummy            = _reader.ReadBytes();
             }
         }
+
         #endregion
 
         #region Char
+
         [Benchmark]
         public void WriteChar()
         {
@@ -192,10 +175,7 @@ namespace jettnet.benchmarks.bench
             {
                 _writer.Position = 0;
 
-                for (int j = 0; j < _writer.Buffer.Count / sizeof(char); j++)
-                {
-                    _writer.WriteChar('a');
-                }
+                for (int j = 0; j < _writer.Buffer.Count / sizeof(char); j++) _writer.WriteChar('a');
             }
         }
 
@@ -206,19 +186,18 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(char); j++)
-                {
-                    dummy = _reader.ReadChar();
-                }
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(char); j++) dummy = _reader.ReadChar();
             }
         }
+
         #endregion
 
         #region Unmanaged Struct
+
         [Benchmark]
         public void WriteUnmanagedStruct()
         {
-            UnmanagedStruct dummy = new UnmanagedStruct();
+            UnmanagedStruct dummy = new();
 
             for (int i = 0; i < TestIterations; i++)
             {
@@ -230,7 +209,7 @@ namespace jettnet.benchmarks.bench
         [Benchmark]
         public void ReadUnmanagedStruct()
         {
-            UnmanagedStruct dummy = new UnmanagedStruct();
+            UnmanagedStruct dummy = new();
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;

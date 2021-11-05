@@ -1,28 +1,27 @@
-﻿using jettnet.logging;
+﻿using System;
+using jettnet.logging;
 using jettnet.sockets;
-using System;
 
 namespace jettnet
 {
     public class JettClient
     {
-        private readonly Socket _socket;
         private readonly Logger _logger;
 
-        private readonly JettMessenger _messenger;
+        private readonly Messenger _messenger;
+        private readonly Socket    _socket;
+        private          bool      _active;
 
-        public bool Connected = false;
-        private bool _active = false;
+        public bool Connected;
 
         public Action OnConnect;
         public Action OnDisconnect;
 
-        public JettClient(Socket socket = null, Logger logger = null, params string[] extraMessageAsms)
+        public JettClient(Socket socket = null, Logger logger = null, params string[] extraMessageAssemblies)
         {
-            _logger = logger ?? new Logger();
-            _socket = socket ?? new KcpSocket();
-
-            _messenger = new JettMessenger(_socket, _logger, extraMessageAsms);
+            _logger    = logger ?? new Logger();
+            _socket    = socket ?? new KcpSocket();
+            _messenger = new Messenger(_socket, _logger, extraMessageAssemblies);
         }
 
         public void Shutdown()
@@ -36,6 +35,8 @@ namespace jettnet
 
         public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
         {
+            // -1 because server client doesnt need to specify,
+            // it's always going to the server
             _messenger.SendMessage(msg, -1, false, channel);
         }
 
@@ -90,18 +91,12 @@ namespace jettnet
 
         public void FetchIncoming()
         {
-            if (_active)
-            {
-                _socket.FetchIncoming();
-            }
+            if (_active) _socket.FetchIncoming();
         }
 
         public void SendOutgoing()
         {
-            if (_active)
-            {
-                _socket.SendOutgoing();
-            }
+            if (_active) _socket.SendOutgoing();
         }
 
         public void Disconnect()

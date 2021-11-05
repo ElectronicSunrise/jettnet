@@ -1,16 +1,17 @@
-﻿using BenchmarkDotNet.Running;
-using System;
+﻿using System;
+using BenchmarkDotNet.Reports;
+using BenchmarkDotNet.Running;
 
 namespace jettnet.benchmarks.bench
 {
-    class JettBenchRunner
+    internal class JettBenchRunner
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Console.WriteLine("Test starting!");
 
             //var summaryByte = BenchmarkRunner.Run<ReadWriteByte>();
-            var summary = BenchmarkRunner.Run<ReadsAndWrites>();
+            Summary summary = BenchmarkRunner.Run<ReadsAndWrites>();
 
             Console.WriteLine("Summary: ");
             Console.WriteLine(summary.AllRuntimes);

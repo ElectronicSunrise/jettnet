@@ -6,26 +6,26 @@ namespace jettnet
 {
     public class JettServer
     {
-        private readonly Socket _socket;
-        private readonly Logger _logger;
-        private readonly JettMessenger _messenger;
-        private readonly ushort _port;
+        private readonly Logger    _logger;
+        private readonly Messenger _messenger;
+        private readonly ushort    _port;
+        private readonly Socket    _socket;
+
+        public bool Active;
+
+        public bool AllowMultipleConnectionsOneAddress = true;
 
         public Action<ConnectionData> ClientConnectedToServer;
         public Action<ConnectionData> ClientDisconnectedFromServer;
 
-        public bool Active = false;
-
-        public bool AllowMultipleConnectionsOneAddress = true;
-
         public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null,
-            params string[] extraMessageAsms)
+                          params string[] extraMessageAsms)
         {
             _socket = socket ?? new KcpSocket();
             _logger = logger ?? new Logger();
             _port   = port;
 
-            _messenger = new JettMessenger(_socket, _logger, extraMessageAsms);
+            _messenger = new Messenger(_socket, _logger, extraMessageAsms);
         }
 
         #region Sending
@@ -36,7 +36,7 @@ namespace jettnet
         }
 
         public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate,
-            int channel = JettChannels.Reliable)
+                         int channel = JettChannels.Reliable)
         {
             _messenger.SendDelegate(msgName.ToID(), writeDelegate, true, clientId, channel);
         }
@@ -97,21 +97,18 @@ namespace jettnet
 
         public void FetchIncoming()
         {
-            if (Active)
-            {
-                _socket.FetchIncoming();
-            }
+            if (Active) _socket.FetchIncoming();
         }
 
         public void SendOutgoing()
         {
-            if (Active)
-            {
-                _socket.SendOutgoing();
-            }
+            if (Active) _socket.SendOutgoing();
         }
 
-        public Socket GetActiveSocket() => _socket;
+        public Socket GetActiveSocket()
+        {
+            return _socket;
+        }
 
         #endregion
 

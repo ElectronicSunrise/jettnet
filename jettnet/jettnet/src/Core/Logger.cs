@@ -11,9 +11,9 @@ namespace jettnet.logging
 
     public class Logger
     {
-        private readonly Action<object> _info = Console.WriteLine;
+        private readonly Action<object> _error   = Console.Error.WriteLine;
+        private readonly Action<object> _info    = Console.WriteLine;
         private readonly Action<object> _warning = Console.WriteLine;
-        private readonly Action<object> _error = Console.Error.WriteLine;
 
         public Logger()
         {

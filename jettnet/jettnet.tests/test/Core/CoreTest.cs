@@ -1,6 +1,6 @@
-﻿﻿using FluentAssertions;
+﻿using System;
+using FluentAssertions;
 using FluentAssertions.Execution;
-using System;
 using Xunit;
 
 namespace jettnet.tests
@@ -11,8 +11,8 @@ namespace jettnet.tests
         public void ToID_generatesId()
         {
             string instance = "I'm getting bricked up writing these unit tests";
-            var expected = 1895833957;
-            
+            int    expected = 1895833957;
+
             Assert.Equal(expected, instance.ToID());
         }
 
@@ -22,27 +22,29 @@ namespace jettnet.tests
             // write
 
             JettWriter writer = new JettWriter();
-            byte[] value = { 69, 4, 2, 0, 69 };
+            byte[]     value  = {69, 4, 2, 0, 69};
 
-            ArraySegment<byte> segment = new ArraySegment<byte>(value, 0, value.Length);
+            var segment = new ArraySegment<byte>(value, 0, value.Length);
 
             writer.WriteByteArraySegment(segment);
 
             using (new AssertionScope())
             {
-                var expectedInt = BitConverter.GetBytes(value.Length);
+                byte[] expectedInt = BitConverter.GetBytes(value.Length);
 
                 writer.Buffer.Should().NotBeEmpty().And.StartWith(expectedInt);
 
                 writer.Position.Should().Be(sizeof(int) + segment.Count);
             }
-            
+
             // read
 
-            JettReader reader = new JettReader();
-            reader.Buffer = writer.Buffer;
+            JettReader reader = new JettReader
+            {
+                Buffer = writer.Buffer
+            };
 
-            ArraySegment<byte> readData = reader.ReadByteArraySegment();
+            var readData = reader.ReadByteArraySegment();
 
             using (new AssertionScope())
             {
@@ -56,34 +58,34 @@ namespace jettnet.tests
         public void JettWriter_WriteByte()
         {
             JettWriter writer = new JettWriter();
-            byte value = 69;
+            const byte value  = 69;
             writer.WriteByte(value);
 
             using (new AssertionScope())
             {
                 writer.Buffer.Should().NotBeEmpty()
-                    .And.StartWith(value);
+                      .And.StartWith(value);
                 writer.Position.Should().Be(1);
             }
         }
-        
+
         [Fact]
         public void JettWriter_WriteBytes()
         {
             JettWriter writer = new JettWriter();
-            byte[] value = {69, 4, 2, 0, 69};
+            byte[]     value  = {69, 4, 2, 0, 69};
             writer.WriteBytes(value);
 
-            var expectedLength = sizeof(int) + value.Length;
+            int expectedLength = sizeof(int) + value.Length;
 
             using (new AssertionScope())
             {
                 writer.Buffer.Should().NotBeEmpty()
-                    .And.StartWith(new byte[] {0x05, 0x00, 0x00, 0x00, 0x45, 0x04, 0x02, 0x00, 0x45});
+                      .And.StartWith(new byte[] {0x05, 0x00, 0x00, 0x00, 0x45, 0x04, 0x02, 0x00, 0x45});
                 writer.Position.Should().Be(expectedLength);
             }
         }
-        
+
         [Fact]
         public void JettWriter_WriteBool()
         {
@@ -93,56 +95,71 @@ namespace jettnet.tests
             using (new AssertionScope())
             {
                 writer.Buffer.Should().NotBeEmpty()
-                    .And.StartWith(0x00);
+                      .And.StartWith(0x00);
                 writer.Position.Should().Be(1);
             }
         }
-        
+
         [Fact]
         public void JettWriter_WriteString()
         {
-            JettWriter writer = new JettWriter();
-            string value = "yo yo yo yo yo";
+            JettWriter   writer = new JettWriter();
+            const string value  = "yo yo yo yo yo";
             writer.WriteString(value);
 
             using (new AssertionScope())
             {
                 writer.Buffer.Should().NotBeEmpty()
-                    .And.StartWith(0x0E);
+                      .And.StartWith(0x0E);
                 writer.Position.Should().Be(32);
             }
         }
-        
+
         [Fact]
         public void JettWriter_WriteChar()
         {
             JettWriter writer = new JettWriter();
-            char value = '7';
+            char       value  = '7';
             writer.WriteChar(value);
 
             using (new AssertionScope())
             {
                 writer.Buffer.Should().NotBeEmpty()
-                    .And.StartWith(0x37);
+                      .And.StartWith(0x37);
                 writer.Position.Should().Be(2);
             }
         }
-        
+
         [Fact]
         public void JettWriter_WriteInt()
         {
             JettWriter writer = new JettWriter();
-            int value = 6942069;
+            int        value  = 6942069;
             writer.WriteInt(value);
 
             using (new AssertionScope())
             {
                 writer.Buffer.Should().NotBeEmpty()
-                    .And.StartWith(new byte[] {0x75, 0xED, 0x69});
+                      .And.StartWith(new byte[] {0x75, 0xED, 0x69});
                 writer.Position.Should().Be(4);
             }
         }
-        
+
+        [Fact]
+        public void JettWriter_WriteUnmanagedStruct()
+        {
+            JettWriter  writer = new JettWriter();
+            ValueStruct value  = new ValueStruct('y');
+
+            writer.WriteUnmanagedStruct(ref value);
+            using (new AssertionScope())
+            {
+                writer.Buffer.Should().NotBeEmpty()
+                      .And.StartWith(0x79);
+                writer.Position.Should().Be(2);
+            }
+        }
+
         private struct ValueStruct
         {
             public ValueStruct(char c)
@@ -151,21 +168,6 @@ namespace jettnet.tests
             }
 
             private char _c;
-        }
-        
-        [Fact]
-        public void JettWriter_WriteUnmanagedStruct()
-        {
-            JettWriter writer = new JettWriter();
-            ValueStruct value = new ValueStruct('y');
-
-            writer.WriteUnmanagedStruct(ref value);
-            using (new AssertionScope())
-            {
-                writer.Buffer.Should().NotBeEmpty()
-                    .And.StartWith(0x79);
-                writer.Position.Should().Be(2);
-            }
         }
     }
 }
