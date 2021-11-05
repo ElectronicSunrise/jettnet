@@ -6,10 +6,10 @@ namespace jettnet
 {
     public class JettServer
     {
-        private Socket _socket;
-        private Logger _logger;
-        private JettMessenger _messenger;
-        private ushort _port;
+        private readonly Socket _socket;
+        private readonly Logger _logger;
+        private readonly JettMessenger _messenger;
+        private readonly ushort _port;
 
         public Action<ConnectionData> ClientConnectedToServer;
         public Action<ConnectionData> ClientDisconnectedFromServer;
@@ -18,11 +18,12 @@ namespace jettnet
 
         public bool AllowMultipleConnectionsOneAddress = true;
 
-        public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null, params string[] extraMessageAsms)
+        public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null,
+            params string[] extraMessageAsms)
         {
             _socket = socket ?? new KcpSocket();
             _logger = logger ?? new Logger();
-            _port = port;
+            _port   = port;
 
             _messenger = new JettMessenger(_socket, _logger, extraMessageAsms);
         }
@@ -34,7 +35,8 @@ namespace jettnet
             _messenger.SendMessage(msg, connectionId, true, channel);
         }
 
-        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate,
+            int channel = JettChannels.Reliable)
         {
             _messenger.SendDelegate(msgName.ToID(), writeDelegate, true, clientId, channel);
         }
@@ -86,8 +88,8 @@ namespace jettnet
 
         private void StartInternal()
         {
-            _socket.ServerDataRecv = DataRecv;
-            _socket.ServerConnected = ServerConnected;
+            _socket.ServerDataRecv     = DataRecv;
+            _socket.ServerConnected    = ServerConnected;
             _socket.ServerDisconnected = ServerDisconnected;
 
             _socket.StartServer(_port);
@@ -137,15 +139,15 @@ namespace jettnet
 
         private void DataRecv(int connId, ArraySegment<byte> segment)
         {
-            using(PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
+            using (PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
             {
-                var msgId = (JettHeader)reader.ReadByte();
+                JettHeader msgId = (JettHeader) reader.ReadByte();
 
                 switch (msgId)
                 {
                     case JettHeader.Message:
 
-                        if(_socket.TryGetConnection(connId, out ConnectionData connection))
+                        if (_socket.TryGetConnection(connId, out ConnectionData connection))
                             _messenger.HandleIncomingMessage(reader, connection);
 
                         break;

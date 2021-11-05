@@ -6,10 +6,10 @@ namespace jettnet
 {
     public class JettClient
     {
-        private Socket _socket;
-        private Logger _logger;
+        private readonly Socket _socket;
+        private readonly Logger _logger;
 
-        private JettMessenger _messenger;
+        private readonly JettMessenger _messenger;
 
         public bool Connected = false;
         private bool _active = false;
@@ -29,10 +29,10 @@ namespace jettnet
         {
             _socket.StopClient();
             Connected = false;
-            _active = false;
+            _active   = false;
         }
 
-#region Sending
+        #region Sending
 
         public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
         {
@@ -49,9 +49,9 @@ namespace jettnet
             _messenger.SendDelegate(msgId, writeDelegate, false, -1, channel);
         }
 
-#endregion
+        #endregion
 
-#region Registering
+        #region Registering
 
         public void Register(int msgId, Action<JettReader> readMethod)
         {
@@ -68,9 +68,9 @@ namespace jettnet
             _messenger.RegisterInternal<T>((r, _) => msgHandler?.Invoke(r));
         }
 
-#endregion
+        #endregion
 
-#region Connection
+        #region Connection
 
         public void Connect(string address, ushort port)
         {
@@ -81,9 +81,9 @@ namespace jettnet
         {
             _active = true;
 
-            _socket.ClientConnected = ClientConnected;
+            _socket.ClientConnected    = ClientConnected;
             _socket.ClientDisconnected = ClientDisconnected;
-            _socket.ClientDataRecv = DataRecv;
+            _socket.ClientDataRecv     = DataRecv;
 
             _socket.StartClient(address, port);
         }
@@ -109,9 +109,9 @@ namespace jettnet
             _socket.StopClient();
         }
 
-#endregion
+        #endregion
 
-#region Callbacks
+        #region Callbacks
 
         private void ClientConnected()
         {
@@ -125,7 +125,7 @@ namespace jettnet
         {
             _logger.Log("We disconnected from a server");
             Connected = false;
-            _active = false;
+            _active   = false;
 
             OnDisconnect?.Invoke();
         }
@@ -134,7 +134,7 @@ namespace jettnet
         {
             using (PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
             {
-                var msgId = (JettHeader)reader.ReadByte();
+                JettHeader msgId = (JettHeader) reader.ReadByte();
 
                 switch (msgId)
                 {
@@ -146,6 +146,6 @@ namespace jettnet
             }
         }
 
-#endregion
+        #endregion
     }
 }

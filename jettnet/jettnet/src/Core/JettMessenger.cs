@@ -8,17 +8,19 @@ namespace jettnet
 {
     public class JettMessenger
     {
-        private Dictionary<int, Action<JettReader, ConnectionData>> _messageHandlers = new Dictionary<int, Action<JettReader, ConnectionData>>();
-        private Dictionary<Type, IJettMessage> _messageReaders;
+        private readonly Dictionary<int, Action<JettReader, ConnectionData>> _messageHandlers =
+            new Dictionary<int, Action<JettReader, ConnectionData>>();
 
-        private Socket _socket;
-        private Logger _logger;
+        private readonly Dictionary<Type, IJettMessage> _messageReaders;
+
+        private readonly Socket _socket;
+        private readonly Logger _logger;
 
         public JettMessenger(Socket socket, Logger logger, params string[] messageAsms)
         {
             _messageReaders = GetReadersAndWritersForMessages(messageAsms);
-            _socket = socket;
-            _logger = logger;
+            _socket         = socket;
+            _logger         = logger;
 
 #if UNITY_64
             UnityEngine.Application.runInBackground = true;
@@ -27,7 +29,8 @@ namespace jettnet
 
         #region Sending
 
-        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, int channel = JettChannels.Reliable)
+        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId,
+            int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
@@ -36,7 +39,8 @@ namespace jettnet
                 if (!isServer)
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
                 else
-                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId, channel);
+                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId,
+                        channel);
             }
         }
 
@@ -49,7 +53,8 @@ namespace jettnet
                 if (!isServer)
                     _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
                 else
-                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId, channel);
+                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId,
+                        channel);
             }
         }
 
@@ -67,13 +72,15 @@ namespace jettnet
                 {
                     var type = typeof(T);
 
-                    T msg = (_messageReaders[type] as IJettMessage<T>).Deserialize(reader);
+                    T msg = ((IJettMessage<T>) _messageReaders[type]).Deserialize(reader);
 
                     handler.Invoke(msg, connData);
                 }
                 catch (Exception e)
                 {
-                    _logger.Log($"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}", LogLevel.Error);
+                    _logger.Log(
+                        $"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}",
+                        LogLevel.Error);
                 }
             };
         }
@@ -93,7 +100,8 @@ namespace jettnet
                 }
                 catch (Exception e)
                 {
-                    _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}, Exception: {e}", LogLevel.Error);
+                    _logger.Log($"Failed to deserialize and invoke the handler for message: {msgId}, Exception: {e}",
+                        LogLevel.Error);
                 }
             };
         }
@@ -102,7 +110,7 @@ namespace jettnet
 
         #region Handlers
 
-        private void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer)
+        private static void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer)
         {
             // write msg id
             writer.WriteInt(msgId);
@@ -122,13 +130,14 @@ namespace jettnet
 
         private static Dictionary<Type, IJettMessage> GetReadersAndWritersForMessages(params string[] extraAsms)
         {
-            var type = typeof(IJettMessage);
+            Type type = typeof(IJettMessage);
 
-            List<Assembly> assemblies = AppDomain.CurrentDomain.GetAssemblies().ToList();
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies().ToList();
 
-            foreach (var item in extraAsms)
+            for (int i = 0; i < extraAsms.Length; i++)
             {
-                var asm = Assembly.Load(item);
+                string   item = extraAsms[i];
+                Assembly asm  = Assembly.Load(item);
 
                 if (item != null)
                     assemblies.Add(asm);
@@ -138,9 +147,9 @@ namespace jettnet
                 .SelectMany(s => s.GetTypes())
                 .Where(x => type.IsAssignableFrom(x)).ToList();
 
-            Dictionary<Type, IJettMessage> foundPairs = new Dictionary<Type, IJettMessage>();
+            var foundPairs = new Dictionary<Type, IJettMessage>();
 
-            foreach (var item in types)
+            foreach (Type item in types)
             {
                 // ignore the default interface and the generic interfaces
                 if (item.ContainsGenericParameters || item == type)
@@ -149,7 +158,7 @@ namespace jettnet
                 if (foundPairs.ContainsKey(item))
                     continue;
 
-                var instance = Activator.CreateInstance(item) as IJettMessage;
+                IJettMessage instance = Activator.CreateInstance(item) as IJettMessage;
 
                 foundPairs.Add(item, instance);
             }
@@ -161,7 +170,7 @@ namespace jettnet
         {
             int messageId = reader.ReadInt();
 
-            if(_messageHandlers.TryGetValue(messageId, out Action<JettReader, ConnectionData> handler))
+            if (_messageHandlers.TryGetValue(messageId, out var handler))
             {
                 handler.Invoke(reader, data);
             }

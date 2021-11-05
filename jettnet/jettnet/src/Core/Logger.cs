@@ -11,22 +11,23 @@ namespace jettnet.logging
 
     public class Logger
     {
-        private Action<object> _info = Console.WriteLine;
-        private Action<object> _warning = Console.WriteLine;
-        private Action<object> _error = Console.Error.WriteLine;
+        private readonly Action<object> _info = Console.WriteLine;
+        private readonly Action<object> _warning = Console.WriteLine;
+        private readonly Action<object> _error = Console.Error.WriteLine;
 
-        public Logger() { }
+        public Logger()
+        {
+        }
 
         public Logger(Action<object> info, Action<object> warning, Action<object> error)
         {
-            _info = info;
+            _info    = info;
             _warning = warning;
-            _error = error;
+            _error   = error;
         }
 
         public void Log(object msg, LogLevel logLevel = LogLevel.Info)
         {
-
 #if UNITY_64
             switch (logLevel)
             {
@@ -53,6 +54,8 @@ namespace jettnet.logging
                 case LogLevel.Error:
                     _error?.Invoke(msg.ToString());
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, null);
             }
 
 #endif

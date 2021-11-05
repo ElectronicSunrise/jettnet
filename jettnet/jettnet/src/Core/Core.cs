@@ -49,20 +49,25 @@ namespace jettnet // v1.3
         public const int Unreliable = 1;
     }
 
-    public struct ConnectionData : IEquatable<ConnectionData>
+    public readonly struct ConnectionData : IEquatable<ConnectionData>
     {
-        public int ClientId;
-        public string Address;
-        public ushort Port;
+        public readonly int ClientId;
+        public readonly string Address;
+        public readonly ushort Port;
+
+        public ConnectionData(int clientId, string address, ushort port)
+        {
+            Address  = address;
+            Port     = port;
+            ClientId = clientId;
+        }
 
         sealed class EqualityComparer : IEqualityComparer<ConnectionData>
         {
-            public bool Equals(ConnectionData x, ConnectionData y)
-            {
-                return x.ClientId == y.ClientId &&
-                       x.Address == y.Address   &&
-                       x.Port == y.Port;
-            }
+            public bool Equals(ConnectionData x, ConnectionData y) =>
+                x.ClientId == y.ClientId &&
+                x.Address == y.Address &&
+                x.Port == y.Port;
 
             public int GetHashCode(ConnectionData obj)
             {
@@ -75,7 +80,8 @@ namespace jettnet // v1.3
 
         public static IEqualityComparer<ConnectionData> Comparer { get; } = new EqualityComparer();
 
-        public bool Equals(ConnectionData other) => ClientId == other.ClientId && Address == other.Address && Port == other.Port;
+        public bool Equals(ConnectionData other) =>
+            ClientId == other.ClientId && Address == other.Address && Port == other.Port;
 
         public override bool Equals(object obj) => obj is ConnectionData other && Equals(other);
 
@@ -95,7 +101,7 @@ namespace jettnet // v1.3
 
     public static class IdExtenstions
     {
-        private static MD5 _crypto = MD5.Create();
+        private static readonly MD5 _crypto = MD5.Create();
 
         public static int ToID(this string s)
         {
@@ -113,7 +119,7 @@ namespace jettnet // v1.3
         public ObjectPool(Func<T> objectGenerator)
         {
             _objectGenerator = objectGenerator ?? throw new ArgumentNullException(nameof(objectGenerator));
-            _objects = new ConcurrentBag<T>();
+            _objects         = new ConcurrentBag<T>();
         }
 
         public T Get() => _objects.TryTake(out T item) ? item : _objectGenerator();
@@ -125,15 +131,16 @@ namespace jettnet // v1.3
     {
         T Deserialize(JettReader reader);
     }
-    
-    public interface IJettMessage 
+
+    public interface IJettMessage
     {
         void Serialize(JettWriter writer);
     }
 
     public sealed class JettWriterPool
     {
-        private static readonly ObjectPool<PooledJettWriter> _writers = new ObjectPool<PooledJettWriter>(() => new PooledJettWriter());
+        private static readonly ObjectPool<PooledJettWriter> _writers =
+            new ObjectPool<PooledJettWriter>(() => new PooledJettWriter());
 
         public static PooledJettWriter Get()
         {
@@ -151,7 +158,7 @@ namespace jettnet // v1.3
         {
             var writer = GetInternal();
 
-            writer.WriteByte((byte)header);
+            writer.WriteByte((byte) header);
 
             return writer;
         }
@@ -164,14 +171,15 @@ namespace jettnet // v1.3
 
     public sealed class JettReaderPool
     {
-        private static readonly ObjectPool<PooledJettReader> _readers = new ObjectPool<PooledJettReader>(() => new PooledJettReader());
+        private static readonly ObjectPool<PooledJettReader> _readers =
+            new ObjectPool<PooledJettReader>(() => new PooledJettReader());
 
         public static PooledJettReader Get(int pos, ArraySegment<byte> data)
         {
             var reader = _readers.Get();
 
             reader.Position = pos;
-            reader.Buffer = data;
+            reader.Buffer   = data;
 
             return reader;
         }
@@ -237,8 +245,8 @@ namespace jettnet // v1.3
 
         public static void WriteByte(this JettWriter writer, byte value)
         {
-            writer.Buffer.Array[writer.Position] = value;
-            writer.Position += 1;
+            writer.Buffer.Array[writer.Position] =  value;
+            writer.Position                      += 1;
         }
 
         public static byte ReadByte(this JettReader reader)
@@ -254,8 +262,8 @@ namespace jettnet // v1.3
             {
                 fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
-                    bool* valuePtr = (bool*)dataPtr;
-                    *valuePtr = value;
+                    bool* valuePtr = (bool*) dataPtr;
+                    *valuePtr       =  value;
                     writer.Position += 1;
                 }
             }
@@ -298,7 +306,7 @@ namespace jettnet // v1.3
 
         public static void WriteBytes(this JettWriter writer, byte[] value)
         {
-            if(value == null)
+            if (value == null)
             {
                 writer.WriteInt(-1);
                 return;
@@ -331,8 +339,8 @@ namespace jettnet // v1.3
             {
                 fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
-                    char* valuePtr = (char*)dataPtr;
-                    *valuePtr = value;
+                    char* valuePtr = (char*) dataPtr;
+                    *valuePtr       =  value;
                     writer.Position += 2;
                 }
             }
@@ -351,7 +359,7 @@ namespace jettnet // v1.3
             {
                 fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
                 {
-                    int* valuePtr = (int*)dataPtr;
+                    int* valuePtr = (int*) dataPtr;
                     *valuePtr = value;
 
                     writer.Position += 4;
@@ -394,12 +402,13 @@ namespace jettnet // v1.3
                 {
                     fixed (void* unmanagedStructPtr = &unmanagedStruct)
                     {
-                        int sizeOfStructure = sizeof(T);
+                        int sizeOfStructure   = sizeof(T);
                         int freeBytesInBuffer = writer.Buffer.Array.Length - writer.Position;
 
                         if (freeBytesInBuffer < sizeOfStructure)
                         {
-                            throw new Exception("Buffer too small.  Bytes available: " + freeBytesInBuffer + " size of struct: " + sizeOfStructure);
+                            throw new Exception("Buffer too small.  Bytes available: " + freeBytesInBuffer +
+                                                " size of struct: " + sizeOfStructure);
                         }
 
                         Buffer.MemoryCopy(unmanagedStructPtr, dataPtr, freeBytesInBuffer, sizeOfStructure);
@@ -416,7 +425,7 @@ namespace jettnet // v1.3
             {
                 fixed (byte* dataPtr = &reader.Buffer.Array[reader.Position])
                 {
-                    fixed(void* unmanagedPtr = &unmanagedStruct)
+                    fixed (void* unmanagedPtr = &unmanagedStruct)
                     {
                         Buffer.MemoryCopy(dataPtr, unmanagedPtr, sizeof(T), sizeof(T));
                     }
@@ -424,7 +433,6 @@ namespace jettnet // v1.3
 
                 reader.Position += sizeof(T);
             }
-
         }
     }
 }

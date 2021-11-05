@@ -68,12 +68,7 @@ namespace jettnet.sockets
             var ep = _server.connections[id].GetRemoteEndPoint() as IPEndPoint;
             var addr = ep.Address.ToString();
 
-            var data = new ConnectionData
-            {
-                Address = addr,
-                Port = (ushort)ep.Port,
-                ClientId = id
-            };
+            var data = new ConnectionData(id, addr, (ushort)ep.Port);
 
             _connectionsByID.Add(id, data);
             _connections.Add(ep);
