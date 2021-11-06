@@ -233,6 +233,10 @@ namespace jettnet // v1.3
 
     public static class JettReadWriteExtensions
     {
+        static JettReadWriteExtensions()
+        {
+        }
+
         public static void WriteByteArraySegment(this JettWriter writer, ArraySegment<byte> segment)
         {
             writer.WriteInt(segment.Count);
@@ -281,7 +285,9 @@ namespace jettnet // v1.3
 
         public static bool ReadBool(this JettReader reader)
         {
-            bool value = BitConverter.ToBoolean(reader.Buffer.Array, reader.Position);
+            bool value = BitConverter.ToBoolean(reader.Buffer.Array ?? 
+                                                throw new InvalidOperationException(
+                                                 "The buffer you want to convert is null."), reader.Position);
             reader.Position += 1;
             return value;
         }
@@ -290,7 +296,7 @@ namespace jettnet // v1.3
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                // Incase string is null or empty, just write nothing.
+                // In case string is null or empty, just write nothing.
                 writer.WriteInt(0);
             }
             else
@@ -332,7 +338,7 @@ namespace jettnet // v1.3
         {
             int byteSize = reader.ReadInt();
 
-            byte[] value = byteSize == -1 ? new byte[0] : new byte[byteSize];
+            byte[] value = byteSize == -1 ? Array.Empty<byte>() : new byte[byteSize];
 
             if (byteSize == -1)
                 return value;
@@ -399,7 +405,9 @@ namespace jettnet // v1.3
 
         public static int ReadInt(this JettReader reader)
         {
-            int value = BitConverter.ToInt32(reader.Buffer.Array, reader.Position);
+            int value = BitConverter.ToInt32(reader.Buffer.Array ?? 
+                                             throw new InvalidOperationException(
+                                              "The buffer you want to read from is null."), reader.Position);
             reader.Position += 4;
             return value;
         }

@@ -19,13 +19,13 @@ namespace jettnet
         public Action<ConnectionData> ClientDisconnectedFromServer;
 
         public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null,
-                          params string[] extraMessageAsms)
+                          params string[] extraMessageAssemblies)
         {
             _socket = socket ?? new KcpSocket();
             _logger = logger ?? new Logger();
             _port   = port;
 
-            _messenger = new Messenger(_socket, _logger, extraMessageAsms);
+            _messenger = new Messenger(_socket, _logger, extraMessageAssemblies);
         }
 
         #region Sending
