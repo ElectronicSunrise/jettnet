@@ -28,36 +28,36 @@ namespace jettnet.logging
 
         public void Log(object msg, LogLevel logLevel = LogLevel.Info)
         {
+            string message = "[JETTNET] " + msg;
+            
 #if UNITY_64
             switch (logLevel)
             {
                 case LogLevel.Info:
-                    UnityEngine.Debug.Log(msg.ToString());
+                    UnityEngine.Debug.Log(message);
                     break;
                 case LogLevel.Warning:
-                    UnityEngine.Debug.LogWarning(msg.ToString());
+                    UnityEngine.Debug.LogWarning(message);
                     break;
                 case LogLevel.Error:
-                    UnityEngine.Debug.LogError(msg.ToString());
+                    UnityEngine.Debug.LogError(message);
                     break;
             }
 #else
-
             switch (logLevel)
             {
                 case LogLevel.Info:
-                    _info?.Invoke(msg.ToString());
+                    _info?.Invoke(message);
                     break;
                 case LogLevel.Warning:
-                    _warning?.Invoke(msg.ToString());
+                    _warning?.Invoke(message);
                     break;
                 case LogLevel.Error:
-                    _error?.Invoke(msg.ToString());
+                    _error?.Invoke(message);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, null);
             }
-
 #endif
         }
     }
