@@ -37,6 +37,10 @@ namespace jettnet
         public abstract void DisconnectClient(int id);
 
         public abstract bool AddressExists(string address);
+        
+        public abstract bool ServerActive();
+        
+        public abstract bool ClientActive();
 
         public abstract void StopServer();
 

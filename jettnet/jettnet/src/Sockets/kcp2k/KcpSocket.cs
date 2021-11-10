@@ -43,6 +43,16 @@ namespace jettnet.sockets
             _server.Start(port);
         }
 
+        public override bool ClientActive()
+        {
+            return _client != null && _client.connected;
+        }
+        
+        public override bool ServerActive()
+        {
+            return _server != null && _server.IsActive();
+        }
+
         public override bool AddressExists(string address)
         {
             return _connections.FirstOrDefault(x => x.Address.ToString() == address) != null;
