@@ -43,6 +43,8 @@ namespace jettnet.logging
                     UnityEngine.Debug.LogError(message);
                     break;
             }
+            
+            return;
 #else
             switch (logLevel)
             {
