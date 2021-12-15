@@ -108,12 +108,20 @@ namespace jettnet // v1.3
 
     public static class IdExtenstions
     {
-        private static readonly MD5 _crypto = MD5.Create();
+        private static readonly MD5                     _crypto = MD5.Create();
+        private static readonly Dictionary<string, int> _cache  = new Dictionary<string, int>();
 
         public static int ToID(this string s)
         {
+            if (_cache.TryGetValue(s, out var id))
+                return id;
+            
             byte[] result = _crypto.ComputeHash(Encoding.UTF8.GetBytes(s));
-            return BitConverter.ToInt32(result, 0);
+            int computed = BitConverter.ToInt32(result, 0);
+
+            _cache.Add(s, computed);
+            
+            return computed;
         }
     }
 
