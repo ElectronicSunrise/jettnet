@@ -19,7 +19,16 @@ namespace jettnet.sockets
 
         public override bool TryGetConnection(int id, out ConnectionData connection)
         {
-            throw new NotImplementedException();
+            IPEndPoint clientEndPoint = _server.GetClientEndpoint(id);
+
+            bool endpointExists = clientEndPoint != null;
+
+            connection = endpointExists ?  new ConnectionData(id, 
+                                                              clientEndPoint.Address.ToString(), 
+                                                              (ushort)clientEndPoint.Port)
+                                        : default;
+
+            return endpointExists;
         }
 
         public override void StartClient(string address, ushort port)
