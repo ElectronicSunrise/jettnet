@@ -12,11 +12,16 @@ namespace jettnet.sockets
         private Client _client;
 
         private int _maxMessageSize = 1200;
+        private int _processLimit   = 100;
 
         private readonly List<ConnectionData> _connections = new List<ConnectionData>();
 
-        private int _processLimit = 100;
-
+        public TelepathySocket(int maxMessageSize = 1200, int processLimit = 100) : base()
+        {
+            _maxMessageSize = maxMessageSize;
+            _processLimit   = processLimit;
+        }
+        
         public override bool TryGetConnection(int id, out ConnectionData connection)
         {
             IPEndPoint clientEndPoint = _server.GetClientEndpoint(id);
