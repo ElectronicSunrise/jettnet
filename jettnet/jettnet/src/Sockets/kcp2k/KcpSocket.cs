@@ -42,7 +42,7 @@ namespace jettnet.sockets
 
             _server.Start(port);
         }
-
+        
         public override bool ClientActive()
         {
             return _client != null && _client.connected;

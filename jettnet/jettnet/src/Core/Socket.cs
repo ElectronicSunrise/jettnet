@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 
 namespace jettnet
 {
@@ -23,7 +24,7 @@ namespace jettnet
         public Action<ConnectionData> ServerDisconnected;
 
         public abstract bool TryGetConnection(int id, out ConnectionData connection);
-
+        
         public abstract void StartClient(string address, ushort port);
 
         public abstract void StopClient();
