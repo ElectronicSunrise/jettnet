@@ -101,17 +101,60 @@ namespace jettnet.tests
         }
 
         [Fact]
-        public void JettWriter_WriteString()
+        public void JettReader_ReadBool()
         {
-            JettWriter   writer = new JettWriter();
-            const string value  = "yo yo yo yo yo";
-            writer.WriteString(value);
+            JettWriter writer = new JettWriter();
+            JettReader reader = new JettReader();
+
+            writer.WriteBool(false);
+
+            reader.Buffer   = writer.Buffer;
+            reader.Position = 0;
 
             using (new AssertionScope())
             {
-                writer.Buffer.Should().NotBeEmpty()
-                      .And.StartWith(0x0E);
-                writer.Position.Should().Be(32);
+                reader.ReadBool().Should().BeFalse();
+            }
+        }
+
+        [Fact]
+        public void JettReadWrite_UShort()
+        {
+            JettReader reader = new JettReader();
+            JettWriter writer = new JettWriter();
+
+            const ushort value = 69;
+            writer.WriteUShort(value);
+
+            reader.Buffer   = writer.Buffer;
+            reader.Position = 0;
+
+            using (new AssertionScope())
+            {
+                reader.ReadUShort().Should().Be(value);
+                reader.Position.Should().Be(sizeof(ushort));
+
+                writer.Position.Should().Be(sizeof(ushort));
+            }
+        }
+
+        [Fact]
+        public void JettReadWrite_String()
+        {
+            JettWriter writer = new JettWriter();
+            JettReader reader = new JettReader();
+
+            const string value = "deez nuts";
+            writer.WriteString(value);
+
+            reader.Buffer = writer.Buffer;
+            reader.Position = 0;
+
+            using (new AssertionScope())
+            {
+                writer.Position.Should().Be((value.Length * 2) + sizeof(int));
+
+                reader.ReadString().Should().Be(value);
             }
         }
 

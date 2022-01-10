@@ -49,6 +49,11 @@ namespace jettnet // v1.3
         public const int Unreliable = 1;
     }
 
+    public static class JettConstants
+    {
+        public const int DefaultBufferSize = 1200;
+    }
+
     public readonly struct ConnectionData : IEquatable<ConnectionData>
     {
         public readonly int    ClientId;
@@ -115,12 +120,12 @@ namespace jettnet // v1.3
         {
             if (_cache.TryGetValue(s, out var id))
                 return id;
-            
-            byte[] result = _crypto.ComputeHash(Encoding.UTF8.GetBytes(s));
-            int computed = BitConverter.ToInt32(result, 0);
+
+            byte[] result   = _crypto.ComputeHash(Encoding.UTF8.GetBytes(s));
+            int    computed = BitConverter.ToInt32(result, 0);
 
             _cache.Add(s, computed);
-            
+
             return computed;
         }
     }
@@ -175,10 +180,21 @@ namespace jettnet // v1.3
             return writer;
         }
 
-        public static PooledJettWriter Get(JettHeader header)
+        public static PooledJettWriter Get(JettHeader header = JettHeader.Message, 
+                                           int bufferSize = JettConstants.DefaultBufferSize)
         {
             PooledJettWriter writer = GetInternal();
 
+            bool customBuffer = bufferSize != JettConstants.DefaultBufferSize;
+            
+            // ensure the buffer is defaulted to 1200 (JettConstants.DefaultBufferSize),
+            // if a previous use caused it to grow.
+            
+            if (customBuffer)
+                writer.Buffer = new ArraySegment<byte>(new byte[bufferSize]);
+            else if(writer.Buffer.Array.Length != 1200)
+                writer.Buffer = new ArraySegment<byte>(new byte[JettConstants.DefaultBufferSize]);  
+            
             writer.WriteByte((byte) header);
 
             return writer;
@@ -241,10 +257,6 @@ namespace jettnet // v1.3
 
     public static class JettReadWriteExtensions
     {
-        static JettReadWriteExtensions()
-        {
-        }
-
         public static void WriteByteArraySegment(this JettWriter writer, ArraySegment<byte> segment)
         {
             writer.WriteInt(segment.Count);
@@ -268,13 +280,13 @@ namespace jettnet // v1.3
         public static void WriteByte(this JettWriter writer, byte value)
         {
             writer.Buffer.Array[writer.Position] =  value;
-            writer.Position                      += 1;
+            writer.Position                      += sizeof(byte);
         }
 
         public static byte ReadByte(this JettReader reader)
         {
             byte value = reader.Buffer.Array[reader.Position];
-            reader.Position += 1;
+            reader.Position += sizeof(byte);
             return value;
         }
 
@@ -286,18 +298,47 @@ namespace jettnet // v1.3
                 {
                     bool* valuePtr = (bool*) dataPtr;
                     *valuePtr       =  value;
-                    writer.Position += 1;
+                    writer.Position += sizeof(bool);
                 }
             }
         }
 
         public static bool ReadBool(this JettReader reader)
         {
-            bool value = BitConverter.ToBoolean(reader.Buffer.Array ?? 
-                                                throw new InvalidOperationException(
-                                                 "The buffer you want to convert is null."), reader.Position);
-            reader.Position += 1;
-            return value;
+            unsafe
+            {
+                fixed (byte* dataPtr = &reader.Buffer.Array[reader.Position])
+                {
+                    bool value = *(bool*) dataPtr;
+                    reader.Position += sizeof(bool);
+
+                    return value;
+                }
+            }
+        }
+
+        public static ushort ReadUShort(this JettReader reader)
+        {
+            unsafe
+            {
+                fixed (byte* dataPtr = &reader.Buffer.Array[reader.Position])
+                {
+                    reader.Position += (sizeof(ushort));
+                    return *dataPtr;
+                }
+            }
+        }
+
+        public static void WriteUShort(this JettWriter writer, ushort value)
+        {
+            unsafe
+            {
+                fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
+                {
+                    *dataPtr        =  (byte) value;
+                    writer.Position += sizeof(ushort);
+                }
+            }
         }
 
         public static void WriteString(this JettWriter writer, string value)
@@ -365,16 +406,23 @@ namespace jettnet // v1.3
                 {
                     char* valuePtr = (char*) dataPtr;
                     *valuePtr       =  value;
-                    writer.Position += 2;
+                    writer.Position += sizeof(char);
                 }
             }
         }
 
         public static char ReadChar(this JettReader reader)
         {
-            char value = BitConverter.ToChar(reader.Buffer.Array, reader.Position);
-            reader.Position += 2;
-            return value;
+            unsafe
+            {
+                fixed (byte* dataPtr = &reader.Buffer.Array[reader.Position])
+                {
+                    char value = *(char*) dataPtr;
+                    reader.Position += sizeof(char);
+
+                    return value;
+                }
+            }
         }
 
         public static void WriteInt(this JettWriter writer, int value)
@@ -386,7 +434,7 @@ namespace jettnet // v1.3
                     int* valuePtr = (int*) dataPtr;
                     *valuePtr = value;
 
-                    writer.Position += 4;
+                    writer.Position += sizeof(int);
                 }
             }
         }
@@ -413,11 +461,16 @@ namespace jettnet // v1.3
 
         public static int ReadInt(this JettReader reader)
         {
-            int value = BitConverter.ToInt32(reader.Buffer.Array ?? 
-                                             throw new InvalidOperationException(
-                                              "The buffer you want to read from is null."), reader.Position);
-            reader.Position += 4;
-            return value;
+            unsafe
+            {
+                fixed (byte* dataPtr = &reader.Buffer.Array[reader.Position])
+                {
+                    int value = *(int*) dataPtr;
+                    reader.Position += sizeof(int);
+
+                    return value;
+                }
+            }
         }
 
         public static void WriteUnmanagedStruct<T>(this JettWriter writer, ref T unmanagedStruct) where T : unmanaged
