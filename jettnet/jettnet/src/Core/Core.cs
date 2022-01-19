@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 
 //         _        _    _                 _   
@@ -254,9 +255,71 @@ namespace jettnet // v1.3
         public ArraySegment<byte> Buffer;
         public int                Position;
     }
-
+    
+    public class ArraySerializer<T> : IArraySerializer
+    {
+        public Func<JettReader, T> Read;
+        public Action<JettWriter, T> Write;
+    }
+    
+    public interface IArraySerializer { }
+    
     public static class JettReadWriteExtensions
     {
+        private static Dictionary<Type, IArraySerializer> _serializers = new Dictionary<Type, IArraySerializer>
+        {
+            { typeof(int), new ArraySerializer<int> { Read = ReadInt, Write = WriteInt } },
+            { typeof(bool), new ArraySerializer<bool> { Read = ReadBool, Write = WriteBool } },
+            { typeof(string), new ArraySerializer<string> { Read = ReadString, Write = WriteString } },
+            { typeof(byte), new ArraySerializer<byte> { Read = ReadByte, Write = WriteByte } },
+            { typeof(ushort), new ArraySerializer<ushort> { Read = ReadUShort, Write = WriteUShort } },
+            { typeof(char), new ArraySerializer<char> { Read = ReadChar, Write = WriteChar } },
+            { typeof(float), new ArraySerializer<float> { Read = ReadFloat, Write = WriteFloat } }
+        };
+
+        public static void WriteArray<T>(this JettWriter writer, T[] value)
+        {
+            Type type = typeof(T);
+            
+            if (!_serializers.TryGetValue(type, out IArraySerializer serializer))
+                throw new NotSupportedException($"Type {type} is not supported");
+            
+            ArraySerializer<T> typedSerializer = (ArraySerializer<T>) serializer;
+            
+            if(value == null || value.Length == 0)
+            {
+                writer.WriteInt(-1);
+                return;
+            }
+            
+            writer.WriteInt(value.Length);
+            
+            for (int i = 0; i < value.Length; i++)
+                typedSerializer.Write(writer, value[i]);
+        }
+        
+        public static T[] ReadArray<T>(this JettReader reader)
+        {
+            Type type = typeof(T);
+            
+            if (!_serializers.TryGetValue(type, out IArraySerializer serializer))
+                throw new NotSupportedException($"Type {type} is not supported");
+            
+            ArraySerializer<T> typedSerializer = (ArraySerializer<T>) serializer;
+            
+            int length = reader.ReadInt();
+            
+            if(length == -1)
+                return Array.Empty<T>();
+            
+            T[] result = new T[length];
+            
+            for (int i = 0; i < length; i++)
+                result[i] = typedSerializer.Read(reader);
+            
+            return result;
+        }
+
         public static void WriteByteArraySegment(this JettWriter writer, ArraySegment<byte> segment)
         {
             writer.WriteInt(segment.Count);
@@ -343,30 +406,12 @@ namespace jettnet // v1.3
 
         public static void WriteString(this JettWriter writer, string value)
         {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                // In case string is null or empty, just write nothing.
-                writer.WriteInt(0);
-            }
-            else
-            {
-                writer.WriteInt(value.Length);
-
-                for (int i = 0; i < value.Length; i++)
-                    writer.WriteChar(value[i]);
-            }
+            WriteArray(writer, value.ToCharArray());
         }
 
         public static string ReadString(this JettReader reader)
         {
-            string value = default;
-
-            int stringSize = reader.ReadInt();
-
-            for (int i = 0; i < stringSize; i++)
-                value += reader.ReadChar();
-
-            return value;
+            return new string(ReadArray<char>(reader));
         }
 
         public static void WriteBytes(this JettWriter writer, byte[] value)
@@ -438,27 +483,7 @@ namespace jettnet // v1.3
                 }
             }
         }
-
-        public static void WriteIntArray(this JettWriter writer, int[] values)
-        {
-            writer.WriteInt(values.Length);
-
-            for (int i = 0; i < values.Length; i++)
-                writer.WriteInt(values[i]);
-        }
-
-        public static int[] ReadIntArray(this JettReader reader)
-        {
-            int length = reader.ReadInt();
-
-            int[] values = new int[length];
-
-            for (int i = 0; i < values.Length; i++)
-                values[i] = reader.ReadInt();
-
-            return values;
-        }
-
+        
         public static int ReadInt(this JettReader reader)
         {
             unsafe
@@ -467,6 +492,34 @@ namespace jettnet // v1.3
                 {
                     int value = *(int*) dataPtr;
                     reader.Position += sizeof(int);
+
+                    return value;
+                }
+            }
+        }
+
+        public static void WriteFloat(this JettWriter writer, float value)
+        {
+            unsafe
+            {
+                fixed (byte* dataPtr = &writer.Buffer.Array[writer.Position])
+                {
+                    float* valuePtr = (float*) dataPtr;
+                    *valuePtr = value;
+
+                    writer.Position += sizeof(float);
+                }
+            }
+        }
+
+        public static float ReadFloat(this JettReader reader)
+        {
+            unsafe
+            {
+                fixed (byte* dataPtr = &reader.Buffer.Array[reader.Position])
+                {
+                    float value = *(float*) dataPtr;
+                    reader.Position += sizeof(float);
 
                     return value;
                 }
