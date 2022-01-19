@@ -30,7 +30,7 @@ namespace jettnet
 
         #region Sending
 
-        public void SendManyMessages(IJettMessage msg, int[] connIds, int channel = JettChannels.Reliable)
+        public void SendManyMessages(IJettMessage msg, IEnumerable<int> connIds, int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
@@ -38,14 +38,17 @@ namespace jettnet
 
                 ArraySegment<byte> payload = new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position);
 
-                for (int i = 0; i < connIds.Length; i++)
+                using (var enumerator = connIds.GetEnumerator())
                 {
-                    _socket.ServerSend(payload, connIds[i], channel);
+                    while (enumerator.MoveNext())
+                    {
+                        _socket.ServerSend(payload, enumerator.Current, channel);
+                    }
                 }
             }
         }
 
-        public void SendManyDelegates(int msgId, Action<JettWriter> writeDelegate, int[] connIds, int channel = JettChannels.Reliable)
+        public void SendManyDelegates(int msgId, Action<JettWriter> writeDelegate, IEnumerable<int> connIds, int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {
@@ -53,9 +56,12 @@ namespace jettnet
 
                 ArraySegment<byte> payload = new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position);
 
-                for (int i = 0; i < connIds.Length; i++)
+                using (var enumerator = connIds.GetEnumerator())
                 {
-                    _socket.ServerSend(payload, connIds[i], channel);
+                    while (enumerator.MoveNext())
+                    {
+                        _socket.ServerSend(payload, enumerator.Current, channel);
+                    }
                 }
             }
         }
