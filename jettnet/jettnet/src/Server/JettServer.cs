@@ -34,9 +34,13 @@ namespace jettnet
         {
             _messenger.SendMessage(msg, connectionId, true, channel);
         }
+        
+        public void Send(IJettMessage msg, int[] connectionIds, int channel = JettChannels.Reliable)
+        {
+            
+        }
 
-        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate,
-                         int channel = JettChannels.Reliable)
+        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
         {
             _messenger.SendDelegate(msgName.ToID(), writeDelegate, true, clientId, channel);
         }

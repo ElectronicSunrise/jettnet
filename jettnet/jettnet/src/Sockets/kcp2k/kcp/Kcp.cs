@@ -1,144 +1,135 @@
 // Kcp based on https://github.com/skywind3000/kcp
 // Kept as close to original as possible.
-
 using System;
 using System.Collections.Generic;
 
-namespace kcp
+namespace kcp2k
 {
     public class Kcp
     {
         // original Kcp has a define option, which is not defined by default:
         // #define FASTACK_CONSERVE
 
-        public const int RTO_NDL  = 30;    // no delay min rto
-        public const int RTO_MIN  = 100;   // normal min rto
-        public const int RTO_DEF  = 200;   // default RTO
-        public const int RTO_MAX  = 60000; // maximum RTO
-        public const int CMD_PUSH = 81;    // cmd: push data
-        public const int CMD_ACK  = 82;    // cmd: ack
-        public const int CMD_WASK = 83;    // cmd: window probe (ask)
-        public const int CMD_WINS = 84;    // cmd: window size (tell)
-        public const int ASK_SEND = 1;     // need to send CMD_WASK
-        public const int ASK_TELL = 2;     // need to send CMD_WINS
-        public const int WND_SND  = 32;    // default send window
-        public const int WND_RCV  = 128;   // default receive window. must be >= max fragment size
+        public const int RTO_NDL = 30;             // no delay min rto
+        public const int RTO_MIN = 100;            // normal min rto
+        public const int RTO_DEF = 200;            // default RTO
+        public const int RTO_MAX = 60000;          // maximum RTO
+        public const int CMD_PUSH = 81;            // cmd: push data
+        public const int CMD_ACK  = 82;            // cmd: ack
+        public const int CMD_WASK = 83;            // cmd: window probe (ask)
+        public const int CMD_WINS = 84;            // cmd: window size (tell)
+        public const int ASK_SEND = 1;             // need to send CMD_WASK
+        public const int ASK_TELL = 2;             // need to send CMD_WINS
+        public const int WND_SND = 32;             // default send window
+        public const int WND_RCV = 128;            // default receive window. must be >= max fragment size
+        public const int MTU_DEF = 1200;           // default MTU (reduced to 1200 to fit all cases: https://en.wikipedia.org/wiki/Maximum_transmission_unit ; steam uses 1200 too!)
+        public const int ACK_FAST = 3;
+        public const int INTERVAL = 100;
+        public const int OVERHEAD = 24;
+        public const int FRG_MAX = byte.MaxValue;  // kcp encodes 'frg' as byte. so we can only ever send up to 255 fragments.
+        public const int DEADLINK = 20;            // default maximum amount of 'xmit' retransmissions until a segment is considered lost
+        public const int THRESH_INIT = 2;
+        public const int THRESH_MIN = 2;
+        public const int PROBE_INIT = 7000;        // 7 secs to probe window size
+        public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
+        public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
 
-        public const int
-            MTU_DEF = 1200; // default MTU (reduced to 1200 to fit all cases: https://en.wikipedia.org/wiki/Maximum_transmission_unit ; steam uses 1200 too!)
+        internal struct AckItem
+        {
+            internal uint serialNumber;
+            internal uint timestamp;
+        }
 
-        public const      int           ACK_FAST      = 3;
-        public const      int           INTERVAL      = 100;
-        public const      int           OVERHEAD      = 24;
-        public const      int           DEADLINK      = 20;
-        public const      int           THRESH_INIT   = 2;
-        public const      int           THRESH_MIN    = 2;
-        public const      int           PROBE_INIT    = 7000;   // 7 secs to probe window size
-        public const      int           PROBE_LIMIT   = 120000; // up to 120 secs to probe window
-        public const      int           FASTACK_LIMIT = 5;      // max times to trigger fastack
-        internal readonly List<AckItem> acklist       = new List<AckItem>(16);
-        private readonly  uint          conv; // conversation
+        // kcp members.
+        internal int state;
+        readonly uint conv;          // conversation
+        internal uint mtu;
+        internal uint mss;           // maximum segment size := MTU - OVERHEAD
+        internal uint snd_una;       // unacknowledged. e.g. snd_una is 9 it means 8 has been confirmed, 9 and 10 have been sent
+        internal uint snd_nxt;
+        internal uint rcv_nxt;
+        internal uint ssthresh;      // slow start threshold
+        internal int rx_rttval;      // average deviation of rtt, used to measure the jitter of rtt
+        internal int rx_srtt;        // smoothed round trip time (a weighted average of rtt)
+        internal int rx_rto;
+        internal int rx_minrto;
+        internal uint snd_wnd;       // send window
+        internal uint rcv_wnd;       // receive window
+        internal uint rmt_wnd;       // remote window
+        internal uint cwnd;          // congestion window
+        internal uint probe;
+        internal uint interval;
+        internal uint ts_flush;
+        internal uint xmit;
+        internal uint nodelay;       // not a bool. original Kcp has '<2 else' check.
+        internal bool updated;
+        internal uint ts_probe;      // timestamp probe
+        internal uint probe_wait;
+        internal uint dead_link;     // maximum amount of 'xmit' retransmissions until a segment is considered lost
+        internal uint incr;
+        internal uint current;       // current time (milliseconds). set by Update.
 
-        private readonly Action<byte[], int> output; // buffer, size
-
+        internal int fastresend;
+        internal int fastlimit;
+        internal bool nocwnd;        // no congestion window
+        internal readonly Queue<Segment> snd_queue = new Queue<Segment>(16); // send queue
+        internal readonly Queue<Segment> rcv_queue = new Queue<Segment>(16); // receive queue
+        // snd_buffer needs index removals.
+        // C# LinkedList allocates for each entry, so let's keep List for now.
+        internal readonly List<Segment> snd_buf = new List<Segment>(16);   // send buffer
         // rcv_buffer needs index insertions and backwards iteration.
         // C# LinkedList allocates for each entry, so let's keep List for now.
-        internal readonly List<Segment>  rcv_buf   = new List<Segment>(16);  // receive buffer
-        internal readonly Queue<Segment> rcv_queue = new Queue<Segment>(16); // receive queue
+        internal readonly List<Segment> rcv_buf = new List<Segment>(16);   // receive buffer
+        internal readonly List<AckItem> acklist = new List<AckItem>(16);
+
+        internal byte[] buffer;
+        readonly Action<byte[], int> output; // buffer, size
+
+        // get how many packet is waiting to be sent
+        public int WaitSnd => snd_buf.Count + snd_queue.Count;
 
         // segment pool to avoid allocations in C#.
         // this is not part of the original C code.
-        private readonly Pool<Segment> SegmentPool = new Pool<Segment>(
-                                                                       // create new segment
-                                                                       () => new Segment(),
-                                                                       // reset segment before reuse
-                                                                       segment => segment.Reset(),
-                                                                       // initial capacity
-                                                                       32
-                                                                      );
-
-        // snd_buffer needs index removals.
-        // C# LinkedList allocates for each entry, so let's keep List for now.
-        internal readonly List<Segment>  snd_buf   = new List<Segment>(16);  // send buffer
-        internal readonly Queue<Segment> snd_queue = new Queue<Segment>(16); // send queue
-
-        internal byte[] buffer;
-        internal uint   current; // current time (milliseconds). set by Update.
-        internal uint   cwnd;    // congestion window
-        internal uint   dead_link;
-        internal int    fastlimit;
-
-        internal int  fastresend;
-        internal uint incr;
-        internal uint interval;
-        internal uint mss; // maximum segment size := MTU - OVERHEAD
-        internal uint mtu;
-        internal bool nocwnd;  // no congestion window
-        internal uint nodelay; // not a bool. original Kcp has '<2 else' check.
-        internal uint probe;
-        internal uint probe_wait;
-        internal uint rcv_nxt;
-        internal uint rcv_wnd; // receive window
-        internal uint rmt_wnd; // remote window
-        internal int  rx_minrto;
-        internal int  rx_rto;
-        internal int  rx_rttval; // average deviation of rtt, used to measure the jitter of rtt
-        internal int  rx_srtt;   // smoothed round trip time (a weighted average of rtt)
-        internal uint snd_nxt;
-
-        internal uint
-            snd_una; // unacknowledged. e.g. snd_una is 9 it means 8 has been confirmed, 9 and 10 have been sent
-
-        internal uint snd_wnd;  // send window
-        internal uint ssthresh; // slow start threshold
-
-        // kcp members.
-        internal int  state;
-        internal uint ts_flush;
-        internal uint ts_probe; // timestamp probe
-        internal bool updated;
-        internal uint xmit;
+        readonly Pool<Segment> SegmentPool = new Pool<Segment>(
+            // create new segment
+            () => new Segment(),
+            // reset segment before reuse
+            (segment) => segment.Reset(),
+            // initial capacity
+            32
+        );
 
         // ikcp_create
         // create a new kcp control object, 'conv' must equal in two endpoint
         // from the same connection.
         public Kcp(uint conv, Action<byte[], int> output)
         {
-            this.conv   = conv;
+            this.conv = conv;
             this.output = output;
-            snd_wnd     = WND_SND;
-            rcv_wnd     = WND_RCV;
-            rmt_wnd     = WND_RCV;
-            mtu         = MTU_DEF;
-            mss         = mtu - OVERHEAD;
-            rx_rto      = RTO_DEF;
-            rx_minrto   = RTO_MIN;
-            interval    = INTERVAL;
-            ts_flush    = INTERVAL;
-            ssthresh    = THRESH_INIT;
-            fastlimit   = FASTACK_LIMIT;
-            dead_link   = DEADLINK;
-            buffer      = new byte[(mtu + OVERHEAD) * 3];
+            snd_wnd = WND_SND;
+            rcv_wnd = WND_RCV;
+            rmt_wnd = WND_RCV;
+            mtu = MTU_DEF;
+            mss = mtu - OVERHEAD;
+            rx_rto = RTO_DEF;
+            rx_minrto = RTO_MIN;
+            interval = INTERVAL;
+            ts_flush = INTERVAL;
+            ssthresh = THRESH_INIT;
+            fastlimit = FASTACK_LIMIT;
+            dead_link = DEADLINK;
+            buffer = new byte[(mtu + OVERHEAD) * 3];
         }
-
-        // get how many packet is waiting to be sent
-        public int WaitSnd => snd_buf.Count + snd_queue.Count;
 
         // ikcp_segment_new
         // we keep the original function and add our pooling to it.
         // this way we'll never miss it anywhere.
-        private Segment SegmentNew()
-        {
-            return SegmentPool.Take();
-        }
+        Segment SegmentNew() => SegmentPool.Take();
 
         // ikcp_segment_delete
         // we keep the original function and add our pooling to it.
         // this way we'll never miss it anywhere.
-        private void SegmentDelete(Segment seg)
-        {
-            SegmentPool.Return(seg);
-        }
+        void SegmentDelete(Segment seg) => SegmentPool.Return(seg);
 
         // ikcp_recv
         // receive data from kcp state machine
@@ -185,10 +176,10 @@ namespace kcp
                 // entry. this is fine because we remove it in ANY case.
                 Segment seg = rcv_queue.Dequeue();
 
-                Buffer.BlockCopy(seg.data.GetBuffer(), 0, buffer, offset, (int) seg.data.Position);
-                offset += (int) seg.data.Position;
+                Buffer.BlockCopy(seg.data.GetBuffer(), 0, buffer, offset, (int)seg.data.Position);
+                offset += (int)seg.data.Position;
 
-                len += (int) seg.data.Position;
+                len += (int)seg.data.Position;
                 uint fragment = seg.frg;
 
                 // note: ispeek is not supported in order to simplify this loop
@@ -205,6 +196,7 @@ namespace kcp
             // move available data from rcv_buf -> rcv_queue
             int removed = 0;
             foreach (Segment seg in rcv_buf)
+            {
                 if (seg.sn == rcv_nxt && rcv_queue.Count < rcv_wnd)
                 {
                     // can't remove while iterating. remember how many to remove
@@ -219,14 +211,16 @@ namespace kcp
                 {
                     break;
                 }
-
+            }
             rcv_buf.RemoveRange(0, removed);
 
             // fast recover
             if (rcv_queue.Count < rcv_wnd && recover)
+            {
                 // ready to send back CMD_WINS in flush
                 // tell remote my window size
                 probe |= ASK_TELL;
+            }
 
             return len;
         }
@@ -240,13 +234,13 @@ namespace kcp
             if (rcv_queue.Count == 0) return -1;
 
             Segment seq = rcv_queue.Peek();
-            if (seq.frg == 0) return (int) seq.data.Position;
+            if (seq.frg == 0) return (int)seq.data.Position;
 
             if (rcv_queue.Count < seq.frg + 1) return -1;
 
             foreach (Segment seg in rcv_queue)
             {
-                length += (int) seg.data.Position;
+                length += (int)seg.data.Position;
                 if (seg.frg == 0) break;
             }
 
@@ -267,51 +261,62 @@ namespace kcp
 
             // calculate amount of fragments necessary for 'len'
             if (len <= mss) count = 1;
-            else count            = (int) ((len + mss - 1) / mss);
+            else count = (int)((len + mss - 1) / mss);
 
-            // original kcp uses WND_RCV const even though rcv_wnd is the
-            // runtime variable. may or may not be correct, see also:
-            // see also: https://github.com/skywind3000/kcp/pull/291/files
-            if (count >= WND_RCV) return -2;
+            // IMPORTANT kcp encodes 'frg' as 1 byte.
+            // so we can only support up to 255 fragments.
+            // (which limits max message size to around 288 KB)
+            // this is really nasty to debug. let's make this 100% obvious.
+            if (count > FRG_MAX)
+                throw new Exception($"Send len={len} requires {count} fragments, but kcp can only handle up to {FRG_MAX} fragments.");
+
+            // original kcp uses WND_RCV const instead of rcv_wnd runtime:
+            // https://github.com/skywind3000/kcp/pull/291/files
+            // which always limits max message size to 144 KB:
+            //if (count >= WND_RCV) return -2;
+            // using configured rcv_wnd uncorks max message size to 'any':
+            if (count >= rcv_wnd) return -2;
 
             if (count == 0) count = 1;
 
             // fragment
             for (int i = 0; i < count; i++)
             {
-                int     size = len > (int) mss ? (int) mss : len;
-                Segment seg  = SegmentNew();
+                int size = len > (int)mss ? (int)mss : len;
+                Segment seg = SegmentNew();
 
-                if (len > 0) seg.data.Write(buffer, offset, size);
+                if (len > 0)
+                {
+                    seg.data.Write(buffer, offset, size);
+                }
                 // seg.len = size: WriteBytes sets segment.Position!
-                seg.frg = (byte) (count - i - 1);
+                seg.frg = (byte)(count - i - 1);
                 snd_queue.Enqueue(seg);
                 offset += size;
-                len    -= size;
+                len -= size;
             }
 
             return 0;
         }
 
         // ikcp_update_ack
-        private void UpdateAck(int rtt) // round trip time
+        void UpdateAck(int rtt) // round trip time
         {
             // https://tools.ietf.org/html/rfc6298
             if (rx_srtt == 0)
             {
-                rx_srtt   = rtt;
+                rx_srtt = rtt;
                 rx_rttval = rtt / 2;
             }
             else
             {
-                int delta            = rtt - rx_srtt;
+                int delta = rtt - rx_srtt;
                 if (delta < 0) delta = -delta;
                 rx_rttval = (3 * rx_rttval + delta) / 4;
-                rx_srtt   = (7 * rx_srtt + rtt) / 8;
+                rx_srtt = (7 * rx_srtt + rtt) / 8;
                 if (rx_srtt < 1) rx_srtt = 1;
             }
-
-            int rto = rx_srtt + Math.Max((int) interval, 4 * rx_rttval);
+            int rto = rx_srtt + Math.Max((int)interval, 4 * rx_rttval);
             rx_rto = Utils.Clamp(rto, rx_minrto, RTO_MAX);
         }
 
@@ -346,16 +351,19 @@ namespace kcp
                     SegmentDelete(seg);
                     break;
                 }
-
-                if (Utils.TimeDiff(sn, seg.sn) < 0) break;
+                if (Utils.TimeDiff(sn, seg.sn) < 0)
+                {
+                    break;
+                }
             }
         }
 
         // ikcp_parse_una
-        private void ParseUna(uint una)
+        void ParseUna(uint una)
         {
             int removed = 0;
             foreach (Segment seg in snd_buf)
+            {
                 if (Utils.TimeDiff(una, seg.sn) > 0)
                 {
                     // can't remove while iterating. remember how many to remove
@@ -367,17 +375,18 @@ namespace kcp
                 {
                     break;
                 }
-
+            }
             snd_buf.RemoveRange(0, removed);
         }
 
         // ikcp_parse_fastack
-        private void ParseFastack(uint sn, uint ts)
+        void ParseFastack(uint sn, uint ts)
         {
             if (Utils.TimeDiff(sn, snd_una) < 0 || Utils.TimeDiff(sn, snd_nxt) >= 0)
                 return;
 
             foreach (Segment seg in snd_buf)
+            {
                 if (Utils.TimeDiff(sn, seg.sn) < 0)
                 {
                     break;
@@ -391,17 +400,18 @@ namespace kcp
                         seg.fastack++;
 #endif
                 }
+            }
         }
 
         // ikcp_ack_push
         // appends an ack.
-        private void AckPush(uint sn, uint ts)
+        void AckPush(uint sn, uint ts)
         {
-            acklist.Add(new AckItem {serialNumber = sn, timestamp = ts});
+            acklist.Add(new AckItem{ serialNumber = sn, timestamp = ts });
         }
 
         // ikcp_parse_data
-        private void ParseData(Segment newseg)
+        void ParseData(Segment newseg)
         {
             uint sn = newseg.sn;
 
@@ -438,25 +448,31 @@ namespace kcp
                     repeat = true;
                     break;
                 }
-
                 if (Utils.TimeDiff(newseg.sn, seg.sn) > 0)
+                {
                     // this entry's sn is < newseg.sn, so let's stop
                     break;
+                }
             }
 
             // no duplicate? then insert.
             if (!repeat)
+            {
                 rcv_buf.Insert(i + 1, newseg);
+            }
             // duplicate. just delete it.
             else
+            {
                 SegmentDelete(newseg);
+            }
         }
 
         // move available data from rcv_buf -> rcv_queue
-        private void MoveReceiveBufferDataToReceiveQueue()
+        void MoveReceiveBufferDataToReceiveQueue()
         {
             int removed = 0;
             foreach (Segment seg in rcv_buf)
+            {
                 if (seg.sn == rcv_nxt && rcv_queue.Count < rcv_wnd)
                 {
                     // can't remove while iterating. remember how many to remove
@@ -469,7 +485,7 @@ namespace kcp
                 {
                     break;
                 }
-
+            }
             rcv_buf.RemoveRange(0, removed);
         }
 
@@ -479,23 +495,23 @@ namespace kcp
         //    level can skip the channel byte more easily
         public int Input(byte[] data, int offset, int size)
         {
-            uint prev_una  = snd_una;
-            uint maxack    = 0;
+            uint prev_una = snd_una;
+            uint maxack = 0;
             uint latest_ts = 0;
-            int  flag      = 0;
+            int flag = 0;
 
             if (data == null || size < OVERHEAD) return -1;
 
             while (true)
             {
-                uint   ts    = 0;
-                uint   sn    = 0;
-                uint   len   = 0;
-                uint   una   = 0;
-                uint   conv_ = 0;
-                ushort wnd   = 0;
-                byte   cmd   = 0;
-                byte   frg   = 0;
+                uint ts = 0;
+                uint sn = 0;
+                uint len = 0;
+                uint una = 0;
+                uint conv_ = 0;
+                ushort wnd = 0;
+                byte cmd = 0;
+                byte frg = 0;
 
                 // enough data left to decode segment (aka OVERHEAD bytes)?
                 if (size < OVERHEAD) break;
@@ -505,6 +521,9 @@ namespace kcp
                 if (conv_ != conv) return -1;
 
                 offset += Utils.Decode8u(data, offset, ref cmd);
+                // IMPORTANT kcp encodes 'frg' as 1 byte.
+                // so we can only support up to 255 fragments.
+                // (which limits max message size to around 288 KB)
                 offset += Utils.Decode8u(data, offset, ref frg);
                 offset += Utils.Decode16U(data, offset, ref wnd);
                 offset += Utils.Decode32U(data, offset, ref ts);
@@ -516,7 +535,8 @@ namespace kcp
                 size -= OVERHEAD;
 
                 // enough remaining to read 'len' bytes of the actual payload?
-                if (size < len || len < 0) return -2;
+                // note: original kcp casts uint len to int for <0 check.
+                if (size < len || (int)len < 0) return -2;
 
                 if (cmd != CMD_PUSH && cmd != CMD_ACK &&
                     cmd != CMD_WASK && cmd != CMD_WINS)
@@ -528,13 +548,16 @@ namespace kcp
 
                 if (cmd == CMD_ACK)
                 {
-                    if (Utils.TimeDiff(current, ts) >= 0) UpdateAck(Utils.TimeDiff(current, ts));
+                    if (Utils.TimeDiff(current, ts) >= 0)
+                    {
+                        UpdateAck(Utils.TimeDiff(current, ts));
+                    }
                     ParseAck(sn);
                     ShrinkBuf();
                     if (flag == 0)
                     {
-                        flag      = 1;
-                        maxack    = sn;
+                        flag = 1;
+                        maxack = sn;
                         latest_ts = ts;
                     }
                     else
@@ -542,7 +565,7 @@ namespace kcp
                         if (Utils.TimeDiff(sn, maxack) > 0)
                         {
 #if !FASTACK_CONSERVE
-                            maxack    = sn;
+                            maxack = sn;
                             latest_ts = ts;
 #else
                             if (Utils.TimeDiff(ts, latest_ts) > 0)
@@ -563,13 +586,16 @@ namespace kcp
                         {
                             Segment seg = SegmentNew();
                             seg.conv = conv_;
-                            seg.cmd  = cmd;
-                            seg.frg  = frg;
-                            seg.wnd  = wnd;
-                            seg.ts   = ts;
-                            seg.sn   = sn;
-                            seg.una  = una;
-                            if (len > 0) seg.data.Write(data, offset, (int) len);
+                            seg.cmd = cmd;
+                            seg.frg = frg;
+                            seg.wnd = wnd;
+                            seg.ts = ts;
+                            seg.sn = sn;
+                            seg.una = una;
+                            if (len > 0)
+                            {
+                                seg.data.Write(data, offset, (int)len);
+                            }
                             ParseData(seg);
                         }
                     }
@@ -589,14 +615,18 @@ namespace kcp
                     return -3;
                 }
 
-                offset += (int) len;
-                size   -= (int) len;
+                offset += (int)len;
+                size -= (int)len;
             }
 
-            if (flag != 0) ParseFastack(maxack, latest_ts);
+            if (flag != 0)
+            {
+                ParseFastack(maxack, latest_ts);
+            }
 
             // cwnd update when packet arrived
             if (Utils.TimeDiff(snd_una, prev_una) > 0)
+            {
                 if (cwnd < rmt_wnd)
                 {
                     if (cwnd < ssthresh)
@@ -607,25 +637,28 @@ namespace kcp
                     else
                     {
                         if (incr < mss) incr = mss;
-                        incr += mss * mss / incr + mss / 16;
-                        if ((cwnd + 1) * mss <= incr) cwnd = (incr + mss - 1) / (mss > 0 ? mss : 1);
+                        incr += (mss * mss) / incr + (mss / 16);
+                        if ((cwnd + 1) * mss <= incr)
+                        {
+                            cwnd = (incr + mss - 1) / ((mss > 0) ? mss : 1);
+                        }
                     }
-
                     if (cwnd > rmt_wnd)
                     {
                         cwnd = rmt_wnd;
                         incr = rmt_wnd * mss;
                     }
                 }
+            }
 
             return 0;
         }
 
         // ikcp_wnd_unused
-        private uint WndUnused()
+        uint WndUnused()
         {
             if (rcv_queue.Count < rcv_wnd)
-                return rcv_wnd - (uint) rcv_queue.Count;
+                return rcv_wnd - (uint)rcv_queue.Count;
             return 0;
         }
 
@@ -633,8 +666,8 @@ namespace kcp
         // flush remain ack segments
         public void Flush()
         {
-            int  offset = 0;     // buffer ptr in original C
-            bool lost   = false; // lost segments
+            int offset = 0;    // buffer ptr in original C
+            bool lost = false; // lost segments
 
             // helper functions
             void MakeSpace(int space)
@@ -648,7 +681,10 @@ namespace kcp
 
             void FlushBuffer()
             {
-                if (offset > 0) output(buffer, offset);
+                if (offset > 0)
+                {
+                    output(buffer, offset);
+                }
             }
 
             // 'ikcp_update' haven't been called.
@@ -661,17 +697,17 @@ namespace kcp
             // before returning.
             Segment seg = SegmentNew();
             seg.conv = conv;
-            seg.cmd  = CMD_ACK;
-            seg.wnd  = WndUnused();
-            seg.una  = rcv_nxt;
+            seg.cmd = CMD_ACK;
+            seg.wnd = WndUnused();
+            seg.una = rcv_nxt;
 
             // flush acknowledges
             foreach (AckItem ack in acklist)
             {
                 MakeSpace(OVERHEAD);
                 // ikcp_ack_get assigns ack[i] to seg.sn, seg.ts
-                seg.sn =  ack.serialNumber;
-                seg.ts =  ack.timestamp;
+                seg.sn = ack.serialNumber;
+                seg.ts = ack.timestamp;
                 offset += seg.Encode(buffer, offset);
             }
 
@@ -683,7 +719,7 @@ namespace kcp
                 if (probe_wait == 0)
                 {
                     probe_wait = PROBE_INIT;
-                    ts_probe   = current + probe_wait;
+                    ts_probe = current + probe_wait;
                 }
                 else
                 {
@@ -694,14 +730,14 @@ namespace kcp
                         probe_wait += probe_wait / 2;
                         if (probe_wait > PROBE_LIMIT)
                             probe_wait = PROBE_LIMIT;
-                        ts_probe =  current + probe_wait;
-                        probe    |= ASK_SEND;
+                        ts_probe = current + probe_wait;
+                        probe |= ASK_SEND;
                     }
                 }
             }
             else
             {
-                ts_probe   = 0;
+                ts_probe = 0;
                 probe_wait = 0;
             }
 
@@ -740,22 +776,22 @@ namespace kcp
 
                 Segment newseg = snd_queue.Dequeue();
 
-                newseg.conv     = conv;
-                newseg.cmd      = CMD_PUSH;
-                newseg.wnd      = seg.wnd;
-                newseg.ts       = current;
-                newseg.sn       = snd_nxt++;
-                newseg.una      = rcv_nxt;
+                newseg.conv = conv;
+                newseg.cmd = CMD_PUSH;
+                newseg.wnd = seg.wnd;
+                newseg.ts = current;
+                newseg.sn = snd_nxt++;
+                newseg.una = rcv_nxt;
                 newseg.resendts = current;
-                newseg.rto      = rx_rto;
-                newseg.fastack  = 0;
-                newseg.xmit     = 0;
+                newseg.rto = rx_rto;
+                newseg.fastack = 0;
+                newseg.xmit = 0;
                 snd_buf.Add(newseg);
             }
 
             // calculate resent
-            uint resent = fastresend > 0 ? (uint) fastresend : 0xffffffff;
-            uint rtomin = nodelay == 0 ? (uint) rx_rto >> 3 : 0;
+            uint resent = fastresend > 0 ? (uint)fastresend : 0xffffffff;
+            uint rtomin = nodelay == 0 ? (uint)rx_rto >> 3 : 0;
 
             // flush data segments
             int change = 0;
@@ -767,8 +803,8 @@ namespace kcp
                 {
                     needsend = true;
                     segment.xmit++;
-                    segment.rto      = rx_rto;
-                    segment.resendts = current + (uint) segment.rto + rtomin;
+                    segment.rto = rx_rto;
+                    segment.resendts = current + (uint)segment.rto + rtomin;
                 }
                 // RTO
                 else if (Utils.TimeDiff(current, segment.resendts) >= 0)
@@ -782,12 +818,11 @@ namespace kcp
                     }
                     else
                     {
-                        int step = nodelay < 2 ? segment.rto : rx_rto;
+                        int step = (nodelay < 2) ? segment.rto : rx_rto;
                         segment.rto += step / 2;
                     }
-
-                    segment.resendts = current + (uint) segment.rto;
-                    lost             = true;
+                    segment.resendts = current + (uint)segment.rto;
+                    lost = true;
                 }
                 // fast retransmit
                 else if (segment.fastack >= resent)
@@ -796,30 +831,35 @@ namespace kcp
                     {
                         needsend = true;
                         segment.xmit++;
-                        segment.fastack  = 0;
-                        segment.resendts = current + (uint) segment.rto;
+                        segment.fastack = 0;
+                        segment.resendts = current + (uint)segment.rto;
                         change++;
                     }
                 }
 
                 if (needsend)
                 {
-                    segment.ts  = current;
+                    segment.ts = current;
                     segment.wnd = seg.wnd;
                     segment.una = rcv_nxt;
 
-                    int need = OVERHEAD + (int) segment.data.Position;
+                    int need = OVERHEAD + (int)segment.data.Position;
                     MakeSpace(need);
 
                     offset += segment.Encode(buffer, offset);
 
                     if (segment.data.Position > 0)
                     {
-                        Buffer.BlockCopy(segment.data.GetBuffer(), 0, buffer, offset, (int) segment.data.Position);
-                        offset += (int) segment.data.Position;
+                        Buffer.BlockCopy(segment.data.GetBuffer(), 0, buffer, offset, (int)segment.data.Position);
+                        offset += (int)segment.data.Position;
                     }
 
-                    if (segment.xmit >= dead_link) state = -1;
+                    // dead link happens if a message was resent N times, but an
+                    // ack was still not received.
+                    if (segment.xmit >= dead_link)
+                    {
+                        state = -1;
+                    }
                 }
             }
 
@@ -873,7 +913,7 @@ namespace kcp
 
             if (!updated)
             {
-                updated  = true;
+                updated = true;
                 ts_flush = current;
             }
 
@@ -882,13 +922,16 @@ namespace kcp
             if (slap >= 10000 || slap < -10000)
             {
                 ts_flush = current;
-                slap     = 0;
+                slap = 0;
             }
 
             if (slap >= 0)
             {
                 ts_flush += interval;
-                if (Utils.TimeDiff(current, ts_flush) >= 0) ts_flush = current + interval;
+                if (Utils.TimeDiff(current, ts_flush) >= 0)
+                {
+                    ts_flush = current + interval;
+                }
                 Flush();
             }
         }
@@ -905,27 +948,38 @@ namespace kcp
         public uint Check(uint current_)
         {
             uint ts_flush_ = ts_flush;
-            int  tm_flush  = 0x7fffffff;
-            int  tm_packet = 0x7fffffff;
+            int tm_flush = 0x7fffffff;
+            int tm_packet = 0x7fffffff;
 
-            if (!updated) return current_;
+            if (!updated)
+            {
+                return current_;
+            }
 
             if (Utils.TimeDiff(current_, ts_flush_) >= 10000 ||
                 Utils.TimeDiff(current_, ts_flush_) < -10000)
+            {
                 ts_flush_ = current_;
+            }
 
-            if (Utils.TimeDiff(current_, ts_flush_) >= 0) return current_;
+            if (Utils.TimeDiff(current_, ts_flush_) >= 0)
+            {
+                return current_;
+            }
 
             tm_flush = Utils.TimeDiff(ts_flush_, current_);
 
             foreach (Segment seg in snd_buf)
             {
                 int diff = Utils.TimeDiff(seg.resendts, current_);
-                if (diff <= 0) return current_;
+                if (diff <= 0)
+                {
+                    return current_;
+                }
                 if (diff < tm_packet) tm_packet = diff;
             }
 
-            uint minimal                     = (uint) (tm_packet < tm_flush ? tm_packet : tm_flush);
+            uint minimal = (uint)(tm_packet < tm_flush ? tm_packet : tm_flush);
             if (minimal >= interval) minimal = interval;
 
             return current_ + minimal;
@@ -938,15 +992,15 @@ namespace kcp
             if (mtu < 50 || mtu < OVERHEAD)
                 throw new ArgumentException("MTU must be higher than 50 and higher than OVERHEAD");
 
-            buffer   = new byte[(mtu + OVERHEAD) * 3];
+            buffer = new byte[(mtu + OVERHEAD) * 3];
             this.mtu = mtu;
-            mss      = mtu - OVERHEAD;
+            mss = mtu - OVERHEAD;
         }
 
         // ikcp_interval
         public void SetInterval(uint interval)
         {
-            if (interval > 5000) interval    = 5000;
+            if (interval > 5000) interval = 5000;
             else if (interval < 10) interval = 10;
             this.interval = interval;
         }
@@ -963,18 +1017,25 @@ namespace kcp
         {
             this.nodelay = nodelay;
             if (nodelay != 0)
+            {
                 rx_minrto = RTO_NDL;
+            }
             else
+            {
                 rx_minrto = RTO_MIN;
+            }
 
             if (interval >= 0)
             {
-                if (interval > 5000) interval    = 5000;
+                if (interval > 5000) interval = 5000;
                 else if (interval < 10) interval = 10;
                 this.interval = interval;
             }
 
-            if (resend >= 0) fastresend = resend;
+            if (resend >= 0)
+            {
+                fastresend = resend;
+            }
 
             this.nocwnd = nocwnd;
         }
@@ -982,17 +1043,16 @@ namespace kcp
         // ikcp_wndsize
         public void SetWindowSize(uint sendWindow, uint receiveWindow)
         {
-            if (sendWindow > 0) snd_wnd = sendWindow;
+            if (sendWindow > 0)
+            {
+                snd_wnd = sendWindow;
+            }
 
             if (receiveWindow > 0)
+            {
                 // must >= max fragment size
                 rcv_wnd = Math.Max(receiveWindow, WND_RCV);
-        }
-
-        internal struct AckItem
-        {
-            internal uint serialNumber;
-            internal uint timestamp;
+            }
         }
     }
 }

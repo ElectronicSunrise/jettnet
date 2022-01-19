@@ -37,7 +37,7 @@ using System.Text;
 //         God Bless        Never Crash
 
 // [ header ] (1 byte)
-// [ message id] (4 bytes)
+// [ message id ] (4 bytes)
 
 // [ user serialized data ] 
 
@@ -163,7 +163,7 @@ namespace jettnet // v1.3
         void Serialize(JettWriter writer);
     }
 
-    public sealed class JettWriterPool
+    public static class JettWriterPool
     {
         private static readonly ObjectPool<PooledJettWriter> _writers =
             new ObjectPool<PooledJettWriter>(() => new PooledJettWriter());
@@ -192,7 +192,7 @@ namespace jettnet // v1.3
             
             if (customBuffer)
                 writer.Buffer = new ArraySegment<byte>(new byte[bufferSize]);
-            else if(writer.Buffer.Array.Length != 1200)
+            else if(writer.Buffer.Array.Length != JettConstants.DefaultBufferSize)
                 writer.Buffer = new ArraySegment<byte>(new byte[JettConstants.DefaultBufferSize]);  
             
             writer.WriteByte((byte) header);
@@ -206,7 +206,7 @@ namespace jettnet // v1.3
         }
     }
 
-    public sealed class JettReaderPool
+    public static class JettReaderPool
     {
         private static readonly ObjectPool<PooledJettReader> _readers =
             new ObjectPool<PooledJettReader>(() => new PooledJettReader());
@@ -245,7 +245,7 @@ namespace jettnet // v1.3
 
     public class JettWriter
     {
-        public ArraySegment<byte> Buffer = new ArraySegment<byte>(new byte[1200]);
+        public ArraySegment<byte> Buffer = new ArraySegment<byte>(new byte[JettConstants.DefaultBufferSize]);
         public int                Position;
     }
 

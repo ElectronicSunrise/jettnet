@@ -30,8 +30,37 @@ namespace jettnet
 
         #region Sending
 
-        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId,
-                                 int channel = JettChannels.Reliable)
+        public void SendManyMessages(IJettMessage msg, int[] connIds, int channel = JettChannels.Reliable)
+        {
+            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
+            {
+                SerializeMessage(msg, writer);
+
+                ArraySegment<byte> payload = new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position);
+
+                for (int i = 0; i < connIds.Length; i++)
+                {
+                    _socket.ServerSend(payload, connIds[i], channel);
+                }
+            }
+        }
+
+        public void SendManyDelegates(int msgId, Action<JettWriter> writeDelegate, int[] connIds, int channel = JettChannels.Reliable)
+        {
+            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
+            {
+                SerializeDelegate(msgId, writeDelegate, writer);
+
+                ArraySegment<byte> payload = new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position);
+
+                for (int i = 0; i < connIds.Length; i++)
+                {
+                    _socket.ServerSend(payload, connIds[i], channel);
+                }
+            }
+        }
+
+        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, int channel = JettChannels.Reliable)
         {
             using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
             {

@@ -66,23 +66,22 @@ namespace jettnet.sockets
 
         public override void StartServer(ushort port)
         {
-            _server = new Server(_maxMessageSize);
-
-            _server.OnConnected = (id) =>
+            _server = new Server(_maxMessageSize)
             {
-                ConnectionData connection = TelepathyIdToConnection(id);
+                OnConnected = (id) =>
+                {
+                    ConnectionData connection = TelepathyIdToConnection(id);
 
-                ServerConnected?.Invoke(connection);
+                    ServerConnected?.Invoke(connection);
+                },
+                OnDisconnected = (id) =>
+                {
+                    ConnectionData connection = TelepathyIdToConnection(id);
+
+                    ServerDisconnected?.Invoke(connection);
+                },
+                OnData = (id, data) => ServerDataRecv?.Invoke(id, data)
             };
-
-            _server.OnDisconnected = (id) =>
-            {
-                ConnectionData connection = TelepathyIdToConnection(id);
-
-                ServerDisconnected?.Invoke(connection);
-            };
-
-            _server.OnData = (id, data) => { ServerDataRecv?.Invoke(id, data); };
 
             _server.Start(port);
         }

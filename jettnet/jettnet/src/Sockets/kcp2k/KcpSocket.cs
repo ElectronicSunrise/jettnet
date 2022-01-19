@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using kcp;
+using kcp2k;
 
 namespace jettnet.sockets
 {
@@ -17,7 +17,7 @@ namespace jettnet.sockets
         public override void StartClient(string address, ushort port)
         {
             _client = new KcpClient(ClientConnected,
-                                    ClientDataRecv,
+                                    (data, channel) => ClientDataRecv.Invoke(data),
                                     ClientDisconnected);
 
             // wrapper handles logging
@@ -32,7 +32,7 @@ namespace jettnet.sockets
         public override void StartServer(ushort port)
         {
             _server = new KcpServer(ServerConnect,
-                                    ServerDataRecv,
+                                    (id, data, channel) => ServerDataRecv.Invoke(id, data),
                                     ServerDisconnect,
                                     true, true, 10, 0, false, 4096, 4096, 5000);
 

@@ -1,75 +1,70 @@
 // kcp server logic abstracted into a class.
 // for use in Mirror, DOTSNET, testing, etc.
-
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 
-namespace kcp
+namespace kcp2k
 {
     public class KcpServer
     {
-        // IMPORTANT: raw receive buffer always needs to be of 'MTU' size, even
-        //            if MaxMessageSize is larger. kcp always sends in MTU
-        //            segments and having a buffer smaller than MTU would
-        //            silently drop excess data.
-        //            => we need the mtu to fit channel + message!
-        private readonly byte[] rawReceiveBuffer = new byte[Kcp.MTU_DEF];
+        // events
+        public Action<int> OnConnected;
+        public Action<int, ArraySegment<byte>, KcpChannel> OnData;
+        public Action<int> OnDisconnected;
 
-        // KCP 'NoCongestionWindow' is false by default. here we negate it for
-        // ease of use. This can be disabled for high scale games if connections
-        // choke regularly.
-        public bool CongestionWindow;
-
-        // connections <connectionId, connection> where connectionId is EndPoint.GetHashCode
-        public Dictionary<int, KcpServerConnection> connections = new Dictionary<int, KcpServerConnection>();
-
-        // process incoming messages. should be called before updating the world.
-        private readonly HashSet<int> connectionsToRemove = new HashSet<int>();
-
-        // configuration
+        // socket configuration
         // DualMode uses both IPv6 and IPv4. not all platforms support it.
         // (Nintendo Switch, etc.)
         public bool DualMode;
+        // too small send/receive buffers might cause connection drops under
+        // heavy load. using the OS max size can make a difference already.
+        public bool MaximizeSendReceiveBuffersToOSLimit;
 
-        // KCP fastresend parameter. Faster resend for the cost of higher
-        // bandwidth.
-        public int FastResend;
-
+        // kcp configuration
+        // NoDelay is recommended to reduce latency. This also scales better
+        // without buffers getting full.
+        public bool NoDelay;
         // KCP internal update interval. 100ms is KCP default, but a lower
         // interval is recommended to minimize latency and to scale to more
         // networked entities.
         public uint Interval;
-
-        private EndPoint newClientEP;
-
-        // NoDelay is recommended to reduce latency. This also scales better
-        // without buffers getting full.
-        public bool NoDelay;
-
-        // events
-        public Action<int>                     OnConnected;
-        public Action<int, ArraySegment<byte>> OnData;
-        public Action<int>                     OnDisconnected;
-
-        public uint ReceiveWindowSize;
-
+        // KCP fastresend parameter. Faster resend for the cost of higher
+        // bandwidth.
+        public int FastResend;
+        // KCP 'NoCongestionWindow' is false by default. here we negate it for
+        // ease of use. This can be disabled for high scale games if connections
+        // choke regularly.
+        public bool CongestionWindow;
         // KCP window size can be modified to support higher loads.
         // for example, Mirror Benchmark requires:
         //   128, 128 for 4k monsters
         //   512, 512 for 10k monsters
         //  8192, 8192 for 20k monsters
         public uint SendWindowSize;
+        public uint ReceiveWindowSize;
+        // timeout in milliseconds
+        public int Timeout;
+        // maximum retransmission attempts until dead_link
+        public uint MaxRetransmits;
 
         // state
         protected Socket socket;
+        EndPoint newClientEP;
 
-        // timeout in milliseconds
-        public int Timeout;
+        // IMPORTANT: raw receive buffer always needs to be of 'MTU' size, even
+        //            if MaxMessageSize is larger. kcp always sends in MTU
+        //            segments and having a buffer smaller than MTU would
+        //            silently drop excess data.
+        //            => we need the mtu to fit channel + message!
+        readonly byte[] rawReceiveBuffer = new byte[Kcp.MTU_DEF];
+
+        // connections <connectionId, connection> where connectionId is EndPoint.GetHashCode
+        public Dictionary<int, KcpServerConnection> connections = new Dictionary<int, KcpServerConnection>();
 
         public KcpServer(Action<int> OnConnected,
-                         Action<int, ArraySegment<byte>> OnData,
+                         Action<int, ArraySegment<byte>, KcpChannel> OnData,
                          Action<int> OnDisconnected,
                          bool DualMode,
                          bool NoDelay,
@@ -78,41 +73,64 @@ namespace kcp
                          bool CongestionWindow = true,
                          uint SendWindowSize = Kcp.WND_SND,
                          uint ReceiveWindowSize = Kcp.WND_RCV,
-                         int Timeout = KcpConnection.DEFAULT_TIMEOUT)
+                         int Timeout = KcpConnection.DEFAULT_TIMEOUT,
+                         uint MaxRetransmits = Kcp.DEADLINK,
+                         bool MaximizeSendReceiveBuffersToOSLimit = false)
         {
-            this.OnConnected       = OnConnected;
-            this.OnData            = OnData;
-            this.OnDisconnected    = OnDisconnected;
-            this.DualMode          = DualMode;
-            this.NoDelay           = NoDelay;
-            this.Interval          = Interval;
-            this.FastResend        = FastResend;
-            this.CongestionWindow  = CongestionWindow;
-            this.SendWindowSize    = SendWindowSize;
+            this.OnConnected = OnConnected;
+            this.OnData = OnData;
+            this.OnDisconnected = OnDisconnected;
+            this.DualMode = DualMode;
+            this.NoDelay = NoDelay;
+            this.Interval = Interval;
+            this.FastResend = FastResend;
+            this.CongestionWindow = CongestionWindow;
+            this.SendWindowSize = SendWindowSize;
             this.ReceiveWindowSize = ReceiveWindowSize;
-            this.Timeout           = Timeout;
+            this.Timeout = Timeout;
+            this.MaxRetransmits = MaxRetransmits;
+            this.MaximizeSendReceiveBuffersToOSLimit = MaximizeSendReceiveBuffersToOSLimit;
 
             // create newClientEP either IPv4 or IPv6
             newClientEP = DualMode
-                ? new IPEndPoint(IPAddress.IPv6Any, 0)
-                : new IPEndPoint(IPAddress.Any, 0);
+                          ? new IPEndPoint(IPAddress.IPv6Any, 0)
+                          : new IPEndPoint(IPAddress.Any, 0);
         }
 
-        public bool IsActive()
+        public bool IsActive() => socket != null;
+
+        // if connections drop under heavy load, increase to OS limit.
+        // if still not enough, increase the OS limit.
+        void ConfigureSocketBufferSizes()
         {
-            return socket != null;
+            if (MaximizeSendReceiveBuffersToOSLimit)
+            {
+                // log initial size for comparison.
+                // remember initial size for log comparison
+                int initialReceive = socket.ReceiveBufferSize;
+                int initialSend = socket.SendBufferSize;
+
+                socket.SetReceiveBufferToOSLimit();
+                socket.SetSendBufferToOSLimit();
+                Log.Info($"KcpServer: RecvBuf = {initialReceive}=>{socket.ReceiveBufferSize} ({socket.ReceiveBufferSize/initialReceive}x) SendBuf = {initialSend}=>{socket.SendBufferSize} ({socket.SendBufferSize/initialSend}x) increased to OS limits!");
+            }
+            // otherwise still log the defaults for info.
+            else Log.Info($"KcpServer: RecvBuf = {socket.ReceiveBufferSize} SendBuf = {socket.SendBufferSize}. If connections drop under heavy load, enable {nameof(MaximizeSendReceiveBuffersToOSLimit)} to increase it to OS limit. If they still drop, increase the OS limit.");
         }
 
         public void Start(ushort port)
         {
             // only start once
-            if (socket != null) Log.Warning("KCP: server already started!");
+            if (socket != null)
+            {
+                Log.Warning("KCP: server already started!");
+            }
 
             // listen
             if (DualMode)
             {
                 // IPv6 socket with DualMode
-                socket          = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
                 socket.DualMode = true;
                 socket.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
             }
@@ -122,23 +140,33 @@ namespace kcp
                 socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 socket.Bind(new IPEndPoint(IPAddress.Any, port));
             }
+
+            // configure socket buffer size.
+            ConfigureSocketBufferSizes();
         }
 
         public void Send(int connectionId, ArraySegment<byte> segment, KcpChannel channel)
         {
             if (connections.TryGetValue(connectionId, out KcpServerConnection connection))
+            {
                 connection.SendData(segment, channel);
+            }
         }
 
         public void Disconnect(int connectionId)
         {
-            if (connections.TryGetValue(connectionId, out KcpServerConnection connection)) connection.Disconnect();
+            if (connections.TryGetValue(connectionId, out KcpServerConnection connection))
+            {
+                connection.Disconnect();
+            }
         }
 
         public string GetClientAddress(int connectionId)
         {
             if (connections.TryGetValue(connectionId, out KcpServerConnection connection))
+            {
                 return (connection.GetRemoteEndPoint() as IPEndPoint).Address.ToString();
+            }
             return "";
         }
 
@@ -166,20 +194,20 @@ namespace kcp
             return read;
         }
 
-        protected virtual KcpServerConnection CreateConnection()
-        {
-            return new KcpServerConnection(socket, newClientEP, NoDelay, Interval, FastResend, CongestionWindow,
-                                           SendWindowSize, ReceiveWindowSize, Timeout);
-        }
+        protected virtual KcpServerConnection CreateConnection() =>
+            new KcpServerConnection(socket, newClientEP, NoDelay, Interval, FastResend, CongestionWindow, SendWindowSize, ReceiveWindowSize, Timeout, MaxRetransmits);
 
+        // process incoming messages. should be called before updating the world.
+        HashSet<int> connectionsToRemove = new HashSet<int>();
         public void TickIncoming()
         {
             while (socket != null && socket.Poll(0, SelectMode.SelectRead))
+            {
                 try
                 {
                     // receive
                     int msgLength = ReceiveFrom(rawReceiveBuffer, out int connectionId);
-                    //Log.Info($"KCP: server raw recv {msgLength} bytes = {BitConverter.ToString(rawReceiveBuffer, 0, msgLength)}");
+                    //Log.Info($"KCP: server raw recv {msgLength} bytes = {BitConverter.ToString(buffer, 0, msgLength)}");
 
                     // IMPORTANT: detect if buffer was too small for the received
                     //            msgLength. otherwise the excess data would be
@@ -231,11 +259,11 @@ namespace kcp
                                 // internet.
 
                                 // setup data event
-                                connection.OnData = message =>
+                                connection.OnData = (message, channel) =>
                                 {
                                     // call mirror event
                                     //Log.Info($"KCP: OnServerDataReceived({connectionId}, {BitConverter.ToString(message.Array, message.Offset, message.Count)})");
-                                    OnData.Invoke(connectionId, message);
+                                    OnData.Invoke(connectionId, message, channel);
                                 };
 
                                 // setup disconnected event
@@ -280,18 +308,23 @@ namespace kcp
                     }
                 }
                 // this is fine, the socket might have been closed in the other end
-                catch (SocketException)
-                {
-                }
+                catch (SocketException) {}
+            }
 
             // process inputs for all server connections
             // (even if we didn't receive anything. need to tick ping etc.)
-            foreach (KcpServerConnection connection in connections.Values) connection.TickIncoming();
+            foreach (KcpServerConnection connection in connections.Values)
+            {
+                connection.TickIncoming();
+            }
 
             // remove disconnected connections
             // (can't do it in connection.OnDisconnected because Tick is called
             //  while iterating connections)
-            foreach (int connectionId in connectionsToRemove) connections.Remove(connectionId);
+            foreach (int connectionId in connectionsToRemove)
+            {
+                connections.Remove(connectionId);
+            }
             connectionsToRemove.Clear();
         }
 
@@ -299,7 +332,10 @@ namespace kcp
         public void TickOutgoing()
         {
             // flush all server connections
-            foreach (KcpServerConnection connection in connections.Values) connection.TickOutgoing();
+            foreach (KcpServerConnection connection in connections.Values)
+            {
+                connection.TickOutgoing();
+            }
         }
 
         // process incoming and outgoing for convenience.
@@ -315,20 +351,6 @@ namespace kcp
         {
             socket?.Close();
             socket = null;
-        }
-
-        // pause/unpause to safely support mirror scene handling and to
-        // immediately pause the receive while loop if needed.
-        public void Pause()
-        {
-            foreach (KcpServerConnection connection in connections.Values)
-                connection.Pause();
-        }
-
-        public void Unpause()
-        {
-            foreach (KcpServerConnection connection in connections.Values)
-                connection.Unpause();
         }
     }
 }
