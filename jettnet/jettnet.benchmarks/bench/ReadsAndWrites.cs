@@ -149,7 +149,7 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _writer.Position = 0;
-                _writer.WriteBytes(byteArray);
+                _writer.WriteArray(byteArray);
             }
         }
 
@@ -160,7 +160,7 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                dummy            = _reader.ReadBytes();
+                dummy            = _reader.ReadArray<byte>();
             }
         }
 

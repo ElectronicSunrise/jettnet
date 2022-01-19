@@ -17,6 +17,22 @@ namespace jettnet.tests
         }
 
         [Fact]
+        public void ReadWrite_UShort_Generic()
+        {
+            ushort value = 69;
+            
+            JettWriter writer = new JettWriter();
+            writer.Write(value);
+            
+            JettReader reader = new JettReader();
+            reader.Buffer = writer.Buffer;
+            
+            ushort result = reader.Read<ushort>();
+            
+            Assert.Equal(value, result);
+        }
+
+        [Fact]
         public void JettReaderWriter_ArraySegmentByte()
         {
             // write
@@ -74,7 +90,7 @@ namespace jettnet.tests
         {
             JettWriter writer = new JettWriter();
             byte[]     value  = {69, 4, 2, 0, 69};
-            writer.WriteBytes(value);
+            writer.WriteArray(value);
 
             int expectedLength = sizeof(int) + value.Length;
 
