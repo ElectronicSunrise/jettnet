@@ -149,7 +149,7 @@ namespace jettnet
         private static void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer)
         {
             // write msg id
-            writer.WriteInt(msgId);
+            writer.Write(msgId);
 
             // write user data
             writeDelegate.Invoke(writer);
@@ -158,7 +158,7 @@ namespace jettnet
         private void SerializeMessage(IJettMessage msg, PooledJettWriter writer)
         {
             // id
-            writer.WriteInt(msg.GetType().Name.ToID());
+            writer.Write(msg.GetType().Name.ToID());
 
             // user data
             msg.Serialize(writer);
@@ -205,7 +205,7 @@ namespace jettnet
 
         public void HandleIncomingMessage(JettReader reader, ConnectionData data)
         {
-            int messageId = reader.ReadInt();
+            int messageId = reader.Read<int>();
 
             if (_messageHandlers.TryGetValue(messageId, out var handler))
             {

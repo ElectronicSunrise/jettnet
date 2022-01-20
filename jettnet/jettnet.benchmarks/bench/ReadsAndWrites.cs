@@ -29,7 +29,7 @@ namespace jettnet.benchmarks.bench
             {
                 _writer.Position = 0;
 
-                for (int j = 0; j < _writer.Buffer.Count / sizeof(int); j++) _writer.WriteInt(4369);
+                for (int j = 0; j < _writer.Buffer.Count / sizeof(int); j++) _writer.Write(4369);
             }
         }
 
@@ -41,7 +41,7 @@ namespace jettnet.benchmarks.bench
             {
                 _reader.Position = 0;
 
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(int); j++) dummy = _reader.ReadInt();
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(int); j++) dummy = _reader.Read<int>();
             }
         }
 
@@ -58,7 +58,7 @@ namespace jettnet.benchmarks.bench
 
                 for (int j = 0; j < _writer.Buffer.Count / sizeof(byte); j++)
                     // 1 in each nibble
-                    _writer.WriteByte(17);
+                    _writer.Write((byte)17);
             }
         }
 
@@ -69,7 +69,7 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(byte); j++) dummy = _reader.ReadByte();
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(byte); j++) dummy = _reader.Read<byte>();
             }
         }
 
@@ -86,7 +86,7 @@ namespace jettnet.benchmarks.bench
 
                 for (int j = 0; j < _writer.Buffer.Count / sizeof(bool); j++)
                     // 1 in each nibble
-                    _writer.WriteBool(true);
+                    _writer.Write(true);
             }
         }
 
@@ -97,7 +97,7 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(bool); j++) dummy = _reader.ReadBool();
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(bool); j++) dummy = _reader.Read<bool>();
             }
         }
 
@@ -175,7 +175,7 @@ namespace jettnet.benchmarks.bench
             {
                 _writer.Position = 0;
 
-                for (int j = 0; j < _writer.Buffer.Count / sizeof(char); j++) _writer.WriteChar('a');
+                for (int j = 0; j < _writer.Buffer.Count / sizeof(char); j++) _writer.Write('a');
             }
         }
 
@@ -186,7 +186,7 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                for (int j = 0; j < _reader.Buffer.Count / sizeof(char); j++) dummy = _reader.ReadChar();
+                for (int j = 0; j < _reader.Buffer.Count / sizeof(char); j++) dummy = _reader.Read<char>();
             }
         }
 
@@ -202,7 +202,7 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _writer.Position = 0;
-                _writer.WriteUnmanagedStruct(ref dummy);
+                _writer.Write(dummy);
             }
         }
 
@@ -213,7 +213,7 @@ namespace jettnet.benchmarks.bench
             for (int i = 0; i < TestIterations; i++)
             {
                 _reader.Position = 0;
-                _reader.ReadUnmanagedStruct(ref dummy);
+                _reader.Read<UnmanagedStruct>();
             }
         }
 
