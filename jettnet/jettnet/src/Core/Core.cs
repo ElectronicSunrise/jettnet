@@ -305,7 +305,7 @@ namespace jettnet // v1.3
             T[] array = ReadArray<T>(reader);
             return new ArraySegment<T>(array);
         }
-
+        
         public unsafe static T Read<T>(this JettReader reader) where T : unmanaged
         {
             int size = sizeof(T);
