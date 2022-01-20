@@ -129,7 +129,7 @@ namespace jettnet
         {
             using (PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
             {
-                JettHeader msgId = (JettHeader) reader.ReadByte();
+                JettHeader msgId = (JettHeader) reader.Read<byte>();
 
                 switch (msgId)
                 {
