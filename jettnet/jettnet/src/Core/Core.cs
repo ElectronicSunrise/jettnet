@@ -269,7 +269,7 @@ namespace jettnet // v1.3
                 return;
             }
 
-            if (value.Length > ushort.MaxValue)
+            if (value.Length > short.MaxValue)
                 throw new ArgumentOutOfRangeException(nameof(value), "Array length cannot exceed ushort.MaxValue");
 
             int length = count == -1 ? value.Length : count;
