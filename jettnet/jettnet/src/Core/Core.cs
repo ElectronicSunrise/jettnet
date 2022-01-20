@@ -310,8 +310,17 @@ namespace jettnet // v1.3
         {
             int size = sizeof(T);
             
+            bool aligned = (reader.Position & 3) == 0;
+            
             fixed(void* ptr = &reader.Buffer.Array[reader.Position])
             {
+                if (aligned)
+                {
+                    T value = *(T*) ptr;
+                    reader.Position += size;
+                    return value;
+                }
+                
                 T* valueBuffer = stackalloc T[1];
 
                 Buffer.MemoryCopy(ptr, valueBuffer, size, size);
@@ -326,8 +335,19 @@ namespace jettnet // v1.3
         {
             int size = sizeof(T);
             
+            bool aligned = (writer.Position & 3) == 0;
+            
             fixed(void* ptr = &writer.Buffer.Array[writer.Position])
             {
+                if (aligned)
+                {
+                    *(T*)ptr = value;
+                    
+                    writer.Position += size;
+                    
+                    return;
+                }
+                
                 T* valueBuffer = stackalloc T[1]{value};
 
                 Buffer.MemoryCopy(valueBuffer, ptr, size, size);
