@@ -22,47 +22,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-using System;
+using System.Runtime.CompilerServices;
 
-namespace JamesFrowen.BitPacking
+namespace jettnet.mirage.bitpacking
 {
-    public static class BitHelper
+    public static class BitMask
     {
         /// <summary>
-        /// Gets the number of bits need for <paramref name="precision"/> in range negative to positive <paramref name="max"/>
+        /// Creates mask for <paramref name="bits"/>
         /// <para>
-        /// WARNING: these methods are not fast, dont use in hotpath
+        /// (showing 32 bits for simplify, result is 64 bit)
+        /// <br/>
+        /// Example bits = 4 => mask = 00000000_00000000_00000000_00001111
+        /// <br/>
+        /// Example bits = 10 => mask = 00000000_00000000_00000011_11111111
         /// </para>
         /// </summary>
-        /// <param name="max"></param>
-        /// <param name="precision">lowest precision required, bit count will round up so real precision might be higher</param>
+        /// <param name="bits"></param>
         /// <returns></returns>
-        public static int BitCount(float max, float precision)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong Mask(int bits)
         {
-            double log   = Math.Log(2 * max / precision, 2);
-            double floor = Math.Floor(log);
-
-            int integer = (int) floor;
-            
-            int result = integer + 1;
-
-            return result;
-
-            // return Mathf.FloorToInt(Mathf.Log(2 * max / precision, 2)) + 1;
+            return bits == 0 ? 0 : ulong.MaxValue >> (64 - bits);
         }
 
         /// <summary>
-        /// Gets the number of bits need for <paramref name="max"/>
-        /// <para>
-        /// WARNING: these methods are not fast, dont use in hotpath
-        /// </para>
+        /// Creates Mask either side of start and end
+        /// <para>Note this mask is only valid for start [0..63] and end [0..64]</para>
         /// </summary>
-        /// <param name="max"></param>
-        /// <param name="precision">lowest precision required, bit count will round up so real precision might be higher</param>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
         /// <returns></returns>
-        public static int BitCount(ulong max)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong OuterMask(int start, int end)
         {
-            return (int)Math.Floor(Math.Log(max, 2)) + 1;
+            return (ulong.MaxValue << start) ^ (ulong.MaxValue >> (64 - end));
         }
     }
 }

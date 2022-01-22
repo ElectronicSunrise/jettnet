@@ -28,7 +28,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using jettnet.logging;
 
-namespace JamesFrowen.BitPacking
+namespace jettnet.mirage.bitpacking
 {
     /// <summary>
     /// Bit writer, writes values to a buffer on a bit level

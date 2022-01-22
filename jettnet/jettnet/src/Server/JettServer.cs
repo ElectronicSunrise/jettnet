@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using JamesFrowen.BitPacking;
+using jettnet.mirage.bitpacking;
 using jettnet.logging;
 using jettnet.sockets;
 

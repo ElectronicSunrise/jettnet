@@ -28,7 +28,7 @@ namespace jettnet.sockets
 
             bool endpointExists = clientEndPoint != null;
 
-            connection = endpointExists ?  new ConnectionData(id, clientEndPoint)
+            connection = endpointExists ?  new ConnectionData(id, clientEndPoint.Address.ToString(), (ushort) clientEndPoint.Port)
                                         : default;
 
             return endpointExists;
@@ -88,7 +88,7 @@ namespace jettnet.sockets
         {
             IPEndPoint ep = _server.GetClientEndpoint(id);
             
-            ConnectionData connection = new ConnectionData(id, ep);
+            ConnectionData connection = new ConnectionData(id, ep.Address.ToString(), (ushort) ep.Port);
             return connection;
         }
 

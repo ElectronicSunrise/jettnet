@@ -80,7 +80,7 @@ namespace jettnet.sockets
             if (!(_server.connections[id].GetRemoteEndPoint() is IPEndPoint remoteEndPoint)) 
                 return;
 
-            ConnectionData data = new ConnectionData(id, remoteEndPoint);
+            ConnectionData data = new ConnectionData(id, remoteEndPoint.Address.ToString(), (ushort)remoteEndPoint.Port);
 
             _connectionsById.Add(id, data);
             _connections.Add(remoteEndPoint);

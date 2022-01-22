@@ -25,7 +25,7 @@ SOFTWARE.
 using System;
 using System.Runtime.CompilerServices;
 
-namespace JamesFrowen.BitPacking
+namespace jettnet.mirage.bitpacking
 {
 
     /// <summary>

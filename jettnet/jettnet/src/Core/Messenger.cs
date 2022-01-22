@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using JamesFrowen.BitPacking;
+using jettnet.mirage.bitpacking;
 using jettnet.logging;
 
 namespace jettnet
