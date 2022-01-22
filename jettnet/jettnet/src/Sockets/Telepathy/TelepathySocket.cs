@@ -28,9 +28,7 @@ namespace jettnet.sockets
 
             bool endpointExists = clientEndPoint != null;
 
-            connection = endpointExists ?  new ConnectionData(id, 
-                                                              clientEndPoint.Address.ToString(), 
-                                                              (ushort)clientEndPoint.Port)
+            connection = endpointExists ?  new ConnectionData(id, clientEndPoint)
                                         : default;
 
             return endpointExists;
@@ -89,11 +87,8 @@ namespace jettnet.sockets
         private ConnectionData TelepathyIdToConnection(int id)
         {
             IPEndPoint ep = _server.GetClientEndpoint(id);
-
-            ushort clientPort = (ushort) ep.Port;
-            string clientIp   = ep.Address.ToString();
-
-            ConnectionData connection = new ConnectionData(id, clientIp, clientPort);
+            
+            ConnectionData connection = new ConnectionData(id, ep);
             return connection;
         }
 

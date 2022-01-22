@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using JamesFrowen.BitPacking;
 using jettnet.logging;
 
 namespace jettnet
@@ -17,12 +18,18 @@ namespace jettnet
 
         private readonly Socket _socket;
 
+        public readonly JettWriterPool WriterPool;
+        public readonly JettReaderPool ReaderPool;
+
         public Messenger(Socket socket, Logger logger, params string[] extraMessageAssemblies)
         {
             _messageReaders = GetReadersAndWritersForMessages(extraMessageAssemblies);
             _socket         = socket;
             _logger         = logger;
-
+            
+            WriterPool = new JettWriterPool(logger);
+            ReaderPool = new JettReaderPool(logger);
+            
 #if UNITY_64
             UnityEngine.Application.runInBackground = true;
 #endif
@@ -32,11 +39,11 @@ namespace jettnet
 
         public void SendManyMessages(IJettMessage msg, IEnumerable<int> connIds, int channel = JettChannels.Reliable)
         {
-            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
+            using (PooledJettWriter writer = WriterPool.Get())
             {
                 SerializeMessage(msg, writer);
 
-                ArraySegment<byte> payload = new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position);
+                ArraySegment<byte> payload = writer.ToArraySegment();
 
                 using (var enumerator = connIds.GetEnumerator())
                 {
@@ -50,11 +57,11 @@ namespace jettnet
 
         public void SendManyDelegates(int msgId, Action<JettWriter> writeDelegate, IEnumerable<int> connIds, int channel = JettChannels.Reliable)
         {
-            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
+            using (PooledJettWriter writer = WriterPool.Get())
             {
                 SerializeDelegate(msgId, writeDelegate, writer);
 
-                ArraySegment<byte> payload = new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position);
+                ArraySegment<byte> payload = writer.ToArraySegment();
 
                 using (var enumerator = connIds.GetEnumerator())
                 {
@@ -68,29 +75,31 @@ namespace jettnet
 
         public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, int channel = JettChannels.Reliable)
         {
-            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
+            using (PooledJettWriter writer = WriterPool.Get())
             {
                 SerializeDelegate(msgId, writeDelegate, writer);
+                
+                ArraySegment<byte> payload = writer.ToArraySegment();
 
                 if (!isServer)
-                    _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
+                    _socket.ClientSend(payload, channel);
                 else
-                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId,
-                                       channel);
+                    _socket.ServerSend(payload, connId, channel);
             }
         }
 
         public void SendMessage(IJettMessage msg, int connId, bool isServer, int channel = JettChannels.Reliable)
         {
-            using (PooledJettWriter writer = JettWriterPool.Get(JettHeader.Message))
+            using (PooledJettWriter writer = WriterPool.Get())
             {
                 SerializeMessage(msg, writer);
+                
+                ArraySegment<byte> payload = writer.ToArraySegment();
 
                 if (!isServer)
-                    _socket.ClientSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), channel);
+                    _socket.ClientSend(payload, channel);
                 else
-                    _socket.ServerSend(new ArraySegment<byte>(writer.Buffer.Array, 0, writer.Position), connId,
-                                       channel);
+                    _socket.ServerSend(payload, connId, channel);
             }
         }
 
@@ -149,7 +158,7 @@ namespace jettnet
         private static void SerializeDelegate(int msgId, Action<JettWriter> writeDelegate, PooledJettWriter writer)
         {
             // write msg id
-            writer.Write(msgId);
+            writer.WriteInt32(msgId);
 
             // write user data
             writeDelegate.Invoke(writer);
@@ -158,7 +167,7 @@ namespace jettnet
         private void SerializeMessage(IJettMessage msg, PooledJettWriter writer)
         {
             // id
-            writer.Write(msg.GetType().Name.ToID());
+            writer.WriteInt32(msg.GetType().Name.ToID());
 
             // user data
             msg.Serialize(writer);
@@ -205,7 +214,7 @@ namespace jettnet
 
         public void HandleIncomingMessage(JettReader reader, ConnectionData data)
         {
-            int messageId = reader.Read<int>();
+            int messageId = reader.ReadInt32();
 
             if (_messageHandlers.TryGetValue(messageId, out var handler))
             {

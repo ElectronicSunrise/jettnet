@@ -3,12 +3,21 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using FluentAssertions;
 using FluentAssertions.Execution;
+using JamesFrowen.BitPacking;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace jettnet.tests
 {
     public class CoreTest
     {
+        private readonly ITestOutputHelper output;
+
+        public CoreTest(ITestOutputHelper output)
+        {
+            this.output = output;
+        }
+        
         [Fact]
         public void ToID_generatesId()
         {
@@ -19,87 +28,38 @@ namespace jettnet.tests
         }
 
         [Fact]
-        public static void SerializerTest()
+        public void SerializerTest()
         {
-            JettWriter writer = new JettWriter();
+            JettWriter writer = new JettWriter(1200, true);
             JettReader reader = new JettReader();
             
-            writer.Write(default(int));
-            writer.Write(default(uint));
-            writer.Write(default(long));
-            writer.Write(default(ulong));
-            writer.Write(default(short));
-            writer.Write(default(ushort));
-            writer.Write(default(byte));
-            writer.Write(default(sbyte));
-            writer.Write(default(float));
-            writer.Write(default(double));
-            writer.Write(default(decimal));
-            writer.Write(default(bool));
-            writer.Write(default(char));
+            writer.WriteUInt32(77u);
+            writer.WriteInt64(66L);
+            writer.WriteUInt64(420UL);
+            writer.WriteInt16(88);
+            writer.WriteUInt16(1000);
+            writer.WriteByte(255);
+            writer.WriteSByte(43);
+            writer.WriteSingle(1.00069f);
+            writer.WriteDouble(30.67);
+            writer.WriteBoolean(false);
+
+            var arr = writer.ToArray();
             
-            writer.Write(default(DateTime));
-            writer.Write(default(TimeSpan));
-            writer.Write(default(Guid));
+  //          output.WriteLine($"writer byte length {arr.Length}, normal size {normalSize}");
 
-            reader.Buffer = writer.Buffer;
-            reader.Position = 0;
-            
-            Assert.Equal(default(int), reader.Read<int>());
-            Assert.Equal(default(uint), reader.Read<uint>());
-            Assert.Equal(default(long), reader.Read<long>());
-            Assert.Equal(default(ulong), reader.Read<ulong>());
-            Assert.Equal(default(short), reader.Read<short>());
-            Assert.Equal(default(ushort), reader.Read<ushort>());
-            Assert.Equal(default(byte), reader.Read<byte>());
-            Assert.Equal(default(sbyte), reader.Read<sbyte>());
-            Assert.Equal(default(float), reader.Read<float>());
-            Assert.Equal(default(double), reader.Read<double>());
-            Assert.Equal(default(decimal), reader.Read<decimal>());
-            Assert.Equal(default(bool), reader.Read<bool>());
-            Assert.Equal(default(char), reader.Read<char>());
-            
-            Assert.Equal(default(DateTime), reader.Read<DateTime>());
-            Assert.Equal(default(TimeSpan), reader.Read<TimeSpan>());
-            Assert.Equal(default(Guid), reader.Read<Guid>());
-        }
-        
-        [Fact]
-        public void JettReaderWriter_ArraySegmentByte()
-        {
-            // write
+            reader.Reset(writer.ToArraySegment());
 
-            JettWriter writer = new JettWriter();
-            byte[]     value  = {69, 4, 2, 0, 69};
-
-            var segment = new ArraySegment<byte>(value, 0, value.Length);
-
-            writer.WriteArraySegment(segment);
-
-            using (new AssertionScope())
-            {
-                byte[] expectedShort = BitConverter.GetBytes((short) value.Length);
-
-                writer.Buffer.Should().NotBeEmpty().And.StartWith(expectedShort);
-
-                writer.Position.Should().Be(sizeof(short) + segment.Count);
-            }
-
-            // read
-
-            JettReader reader = new JettReader
-            {
-                Buffer = writer.Buffer
-            };
-
-            var readData = reader.ReadArraySegment<byte>();
-
-            using (new AssertionScope())
-            {
-                Assert.Equal(segment, readData);
-
-                reader.Position.Should().Be(sizeof(short) + segment.Count);
-            }
+            Assert.Equal(77u, reader.ReadUInt32());
+            Assert.Equal(66L, reader.ReadInt64());
+            Assert.Equal(420UL, reader.ReadUInt64());
+            Assert.Equal(88, reader.ReadInt16());
+            Assert.Equal(1000, reader.ReadUInt16());
+            Assert.Equal(255, reader.ReadByte());
+            Assert.Equal(43, reader.ReadSByte());
+            Assert.Equal(1.00069f, reader.ReadSingle());
+            Assert.Equal(30.67, reader.ReadDouble());
+            Assert.False(reader.ReadBoolean());
         }
     }
 }

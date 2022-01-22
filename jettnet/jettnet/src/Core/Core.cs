@@ -2,11 +2,16 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Net;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Xml;
+using JamesFrowen.BitPacking;
+using jettnet.logging;
+using Telepathy;
 
 //         _        _    _                 _   
 //        (_)      | |  | |               | |  
@@ -60,14 +65,16 @@ namespace jettnet // v1.3
 
     public readonly struct ConnectionData : IEquatable<ConnectionData>
     {
-        public readonly int    ClientId;
-        public readonly string Address;
-        public readonly ushort Port;
+        public readonly IPEndPoint EndPoint;
 
-        public ConnectionData(int clientId, string address, ushort port)
+        public readonly int ClientId;
+
+        public string Address => EndPoint.Address.ToString();
+        public ushort Port => (ushort) EndPoint.Port;
+
+        public ConnectionData(int clientId, IPEndPoint endPoint)
         {
-            Address  = address;
-            Port     = port;
+            EndPoint = endPoint;
             ClientId = clientId;
         }
 
@@ -108,11 +115,6 @@ namespace jettnet // v1.3
                 return (ClientId * 397) ^ Port;
             }
         }
-    }
-
-    public enum JettHeader : byte
-    {
-        Message = 4
     }
 
     public static class IdExtenstions
@@ -167,65 +169,52 @@ namespace jettnet // v1.3
         void Serialize(JettWriter writer);
     }
 
-    public static class JettWriterPool
+    public class JettWriterPool
     {
-        private static readonly ObjectPool<PooledJettWriter> _writers =
-            new ObjectPool<PooledJettWriter>(() => new PooledJettWriter());
-
-        public static PooledJettWriter Get()
+        private readonly ObjectPool<PooledJettWriter> _writers;
+        
+        public JettWriterPool(Logger logger)
         {
-            return GetInternal();
+            Func<PooledJettWriter> generator = () => 
+                new PooledJettWriter(this, JettConstants.DefaultBufferSize, true, logger);
+            
+            _writers = new ObjectPool<PooledJettWriter>(generator);
         }
 
-        private static PooledJettWriter GetInternal()
+        public PooledJettWriter Get()
         {
             PooledJettWriter writer = _writers.Get();
-            writer.Position = 0;
-            return writer;
-        }
-
-        public static PooledJettWriter Get(JettHeader header = JettHeader.Message,
-                                           int bufferSize = JettConstants.DefaultBufferSize)
-        {
-            PooledJettWriter writer = GetInternal();
-
-            bool customBuffer = bufferSize != JettConstants.DefaultBufferSize;
-
-            // ensure the buffer is defaulted to 1200 (JettConstants.DefaultBufferSize),
-            // if a previous use caused it to grow.
-
-            if (customBuffer)
-                writer.Buffer = new ArraySegment<byte>(new byte[bufferSize]);
-            else if (writer.Buffer.Array.Length != JettConstants.DefaultBufferSize)
-                writer.Buffer = new ArraySegment<byte>(new byte[JettConstants.DefaultBufferSize]);
-
-            writer.Write((byte) header);
+            writer.Reset();
 
             return writer;
         }
-
-        public static void Return(PooledJettWriter jettWriter)
+        
+        public void Return(PooledJettWriter jettWriter)
         {
             _writers.Return(jettWriter);
         }
     }
 
-    public static class JettReaderPool
+    public class JettReaderPool
     {
-        private static readonly ObjectPool<PooledJettReader> _readers =
-            new ObjectPool<PooledJettReader>(() => new PooledJettReader());
+        private readonly ObjectPool<PooledJettReader> _readers;
 
-        public static PooledJettReader Get(int pos, ArraySegment<byte> data)
+        public JettReaderPool(Logger logger)
+        {
+            Func<PooledJettReader> generator = () => new PooledJettReader(this, logger);
+            _readers = new ObjectPool<PooledJettReader>(generator);
+        }
+        
+        public PooledJettReader Get(ArraySegment<byte> data)
         {
             PooledJettReader reader = _readers.Get();
 
-            reader.Position = pos;
-            reader.Buffer   = data;
+            reader.Reset(data);
 
             return reader;
         }
 
-        public static void Return(PooledJettReader jettReader)
+        public void Return(PooledJettReader jettReader)
         {
             _readers.Return(jettReader);
         }
@@ -233,137 +222,36 @@ namespace jettnet // v1.3
 
     public sealed class PooledJettWriter : JettWriter, IDisposable
     {
+        private readonly JettWriterPool _pool;
+        
+        public PooledJettWriter(JettWriterPool pool, int startBufferSize, bool allowResize, Logger logger = null) :
+            base(startBufferSize, allowResize, logger)
+        {
+            _pool = pool;
+        }
+
         public void Dispose()
         {
-            JettWriterPool.Return(this);
+            _pool.Return(this);
         }
     }
 
     public sealed class PooledJettReader : JettReader, IDisposable
     {
-        public void Dispose()
+        private readonly JettReaderPool _pool;
+        
+        public PooledJettReader(JettReaderPool pool, Logger logger = null) : base(logger)
         {
-            JettReaderPool.Return(this);
+            _pool = pool;
+        }
+
+        public new void Dispose()
+        {
+            _pool.Return(this);
         }
     }
 
-    public class JettWriter
-    {
-        public ArraySegment<byte> Buffer = new ArraySegment<byte>(new byte[JettConstants.DefaultBufferSize]);
-        public int                Position;
-    }
-
-    public class JettReader
-    {
-        public ArraySegment<byte> Buffer;
-        public int                Position;
-    }
-    
     public static class JettReadWriteExtensions
     {
-        public static void WriteArray<T>(this JettWriter writer, T[] value, int offset = 0, int count = -1) where T : unmanaged
-        {
-            if (value == null || value.Length == 0)
-            {
-                writer.Write<short>(-1);
-                return;
-            }
-
-            if (value.Length > short.MaxValue)
-                throw new ArgumentOutOfRangeException(nameof(value), "Array length cannot exceed ushort.MaxValue");
-
-            int length = count == -1 ? value.Length : count;
-
-            writer.Write((short) length);
-
-            for (int i = offset; i < length; i++)
-                writer.Write(value[i]);
-        }
-
-        public static T[] ReadArray<T>(this JettReader reader) where T : unmanaged
-        {
-            int length = reader.Read<short>();
-
-            if (length == -1)
-                return Array.Empty<T>();
-
-            T[] result = new T[length];
-
-            for (int i = 0; i < length; i++)
-                result[i] = reader.Read<T>();
-
-            return result;
-        }
-
-        public static void WriteArraySegment<T>(this JettWriter writer, ArraySegment<T> segment) where T : unmanaged
-        {
-            WriteArray(writer, segment.Array, segment.Offset, segment.Count);
-        }
-
-        public static ArraySegment<T> ReadArraySegment<T>(this JettReader reader) where T : unmanaged
-        {
-            T[] array = ReadArray<T>(reader);
-            return new ArraySegment<T>(array);
-        }
-        
-        public unsafe static T Read<T>(this JettReader reader) where T : unmanaged
-        {
-            int size = sizeof(T);
-            
-            bool aligned = (reader.Position & 3) == 0;
-            
-            fixed(void* ptr = &reader.Buffer.Array[reader.Position])
-            {
-                if (aligned)
-                {
-                    T value = *(T*) ptr;
-                    reader.Position += size;
-                    return value;
-                }
-                
-                T* valueBuffer = stackalloc T[1];
-
-                Buffer.MemoryCopy(ptr, valueBuffer, size, size);
-
-                reader.Position += size;
-
-                return valueBuffer[0];
-            }
-        }
-
-        public unsafe static void Write<T>(this JettWriter writer, T value) where T : unmanaged
-        {
-            int size = sizeof(T);
-            
-            bool aligned = (writer.Position & 3) == 0;
-            
-            fixed(void* ptr = &writer.Buffer.Array[writer.Position])
-            {
-                if (aligned)
-                {
-                    *(T*)ptr = value;
-                    
-                    writer.Position += size;
-                    
-                    return;
-                }
-                
-                T* valueBuffer = stackalloc T[1]{value};
-
-                Buffer.MemoryCopy(valueBuffer, ptr, size, size);
-
-                writer.Position += size;
-            }
-        }
-
-        public static void WriteString(this JettWriter writer, string value)
-        {
-            WriteArray(writer, value.ToCharArray());
-        }
-
-        public static string ReadString(this JettReader reader)
-        {
-            return new string(ReadArray<char>(reader));
-        }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using JamesFrowen.BitPacking;
 using jettnet.logging;
 using jettnet.sockets;
 
@@ -151,19 +152,10 @@ namespace jettnet
 
         private void DataRecv(int connId, ArraySegment<byte> segment)
         {
-            using (PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
+            using (PooledJettReader reader = _messenger.ReaderPool.Get(segment))
             {
-                JettHeader msgId = (JettHeader) reader.Read<byte>();
-
-                switch (msgId)
-                {
-                    case JettHeader.Message:
-
-                        if (_socket.TryGetConnection(connId, out ConnectionData connection))
-                            _messenger.HandleIncomingMessage(reader, connection);
-
-                        break;
-                }
+                if (_socket.TryGetConnection(connId, out ConnectionData connection))
+                    _messenger.HandleIncomingMessage(reader, connection);
             }
         }
 

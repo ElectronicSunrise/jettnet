@@ -1,4 +1,5 @@
 ﻿using System;
+using JamesFrowen.BitPacking;
 using jettnet.logging;
 using jettnet.sockets;
 
@@ -127,17 +128,10 @@ namespace jettnet
 
         private void DataRecv(ArraySegment<byte> segment)
         {
-            using (PooledJettReader reader = JettReaderPool.Get(segment.Offset, segment))
+            using (PooledJettReader reader = _messenger.ReaderPool.Get(segment))
             {
-                JettHeader msgId = (JettHeader) reader.Read<byte>();
-
-                switch (msgId)
-                {
-                    case JettHeader.Message:
-                        // this is client side, client will always receive data from server so no need to pass in data
-                        _messenger.HandleIncomingMessage(reader, default);
-                        break;
-                }
+                // this is client side, client will always receive data from server so no need to pass in data
+                _messenger.HandleIncomingMessage(reader, default);
             }
         }
 
