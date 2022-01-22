@@ -109,14 +109,13 @@ namespace jettnet
 
         public void RegisterInternal<T>(Action<T, ConnectionData> handler) where T : struct, IJettMessage
         {
-            int id = typeof(T).Name.ToID();
+            Type type = typeof(T);
+            int  id   = type.Name.ToID();
 
             _messageHandlers[id] = (reader, connData) =>
             {
                 try
                 {
-                    Type type = typeof(T);
-
                     T msg = ((IJettMessage<T>) _messageReaders[type]).Deserialize(reader);
 
                     handler.Invoke(msg, connData);
@@ -124,7 +123,7 @@ namespace jettnet
                 catch (Exception e)
                 {
                     _logger.Log(
-                                $"Failed to deserialize and invoke the handler for message: {typeof(T).Name}, Exception: {e}",
+                                $"Failed to deserialize and invoke the handler for message: {type.Name}, Exception: {e}",
                                 LogLevel.Error);
                 }
             };
