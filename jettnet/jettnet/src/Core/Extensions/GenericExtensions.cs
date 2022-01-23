@@ -5,99 +5,71 @@ using jettnet.Core.Extensions;
 
 namespace jettnet.mirage.bitpacking
 {
-    public class GenericSerializer<T> : ISerializer
+    public static class Reader<T>
     {
-        public Func<JettReader, T>   Read;
-        public Action<JettWriter, T> Write;
+        public static Func<JettReader, T> Read;
     }
-
-    public interface ISerializer
+    
+    public static class Writer<T>
     {
+        public static Action<JettWriter, T> Write;
     }
 
     public static class GenericExtensions
     {
-        private static readonly Dictionary<Type, ISerializer> _serializers = new Dictionary<Type, ISerializer>
+        static GenericExtensions()
         {
-            {
-                typeof(int),
-                new GenericSerializer<int> 
-                    {Read = (reader => reader.ReadInt32()), Write = (writer, i) => writer.Write(i)}
-            },
-            {
-                typeof(bool),
-                new GenericSerializer<bool>
-                    {Read = (reader => reader.ReadBoolean()), Write = (writer, b) => writer.Write(b)}
-            },
-            {
-                typeof(string),
-                new GenericSerializer<string>
-                    {Read = (reader => reader.ReadString()), Write = (writer, s) => writer.Write(s)}
-            },
-            {
-                typeof(byte),
-                new GenericSerializer<byte> 
-                    {Read = (reader => reader.ReadByte()), Write = (writer, b) => writer.Write(b)}
-            },
-            {
-                typeof(ushort),
-                new GenericSerializer<ushort>
-                    {Read = (reader => reader.ReadUInt16()), Write = (writer, s) => writer.Write(s)}
-            },
-            {
-                typeof(float),
-                new GenericSerializer<float>
-                    {Read = (reader => reader.ReadSingle()), Write = (writer, f) => writer.Write(f)}
-            },
-            {
-                typeof(short),
-                new GenericSerializer<short>
-                    {Read = (reader => reader.ReadInt16()), Write = (writer, s) => writer.Write(s)}
-            },
-            {
-                typeof(uint),
-                new GenericSerializer<uint>
-                    {Read = (reader => reader.ReadUInt32()), Write = (writer, u) => writer.Write(u)}
-            },
-            {
-                typeof(ulong),
-                new GenericSerializer<ulong>
-                    {Read = (reader => reader.ReadUInt64()), Write = (writer, u) => writer.Write(u)}
-            },
-            {
-                typeof(ulong),
-                new GenericSerializer<ulong>
-                    {Read = (reader => reader.ReadUInt64()), Write = (writer, u) => writer.Write(u)}
-            },
-            {
-                typeof(long),
-                new GenericSerializer<long>
-                    {Read = (reader => reader.ReadInt64()), Write = (writer, l) => writer.Write(l)}
-            },
-            {
-                typeof(double),
-                new GenericSerializer<double>
-                    {Read = (reader => reader.ReadDouble()), Write = (writer, d) => writer.Write(d)}
-            },
-            {
-                typeof(sbyte),
-                new GenericSerializer<sbyte>
-                    {Read = (reader => reader.ReadSByte()), Write = (writer, d) => writer.Write(d)}
-            },
-        };
+            Reader<int>.Read = (reader) => reader.ReadPackedInt32();
+            Writer<int>.Write = (writer, value) => writer.WritePackedInt32(value);
+            
+            Reader<uint>.Read = (reader) => reader.ReadPackedUInt32();
+            Writer<uint>.Write = (writer, value) => writer.WritePackedUInt32(value);
+            
+            Reader<float>.Read = (reader) => reader.ReadSingle();
+            Writer<float>.Write = (writer, value) => writer.Write(value);
+            
+            Reader<double>.Read = (reader) => reader.ReadDouble();
+            Writer<double>.Write = (writer, value) => writer.Write(value);
+            
+            Reader<long>.Read = (reader) => reader.ReadPackedInt64();
+            Writer<long>.Write = (writer, value) => writer.WritePackedInt64(value);
+            
+            Reader<ulong>.Read = (reader) => reader.ReadPackedUInt64();
+            Writer<ulong>.Write = (writer, value) => writer.WriteUInt64(value);
+            
+            Reader<short>.Read = (reader) => reader.ReadInt16();
+            Writer<short>.Write = (writer, value) => writer.Write(value);
+            
+            Reader<ushort>.Read = (reader) => reader.ReadUInt16();
+            Writer<ushort>.Write = (writer, value) => writer.Write(value);
+            
+            Reader<sbyte>.Read = (reader) => reader.ReadSByte();
+            Writer<sbyte>.Write = (writer, value) => writer.Write(value);
+            
+            Reader<byte>.Read = (reader) => reader.ReadByte();
+            Writer<byte>.Write = (writer, value) => writer.Write(value);
+            
+            Reader<bool>.Read = (reader) => reader.ReadBoolean();
+            Writer<bool>.Write = (writer, value) => writer.Write(value);
+            
+            Reader<string>.Read = (reader) => reader.ReadString();
+            Writer<string>.Write = (writer, value) => writer.Write(value);
+        }
 
         /// <summary>
         /// Writes any type that jettnet supports
         /// </summary>
         /// <typeparam name="T"></typeparam>
+        /// <param name="writer"></param>
         /// <param name="value"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Write<T>(this JettWriter writer, T value)
         {
-            if (_serializers.TryGetValue(typeof(T), out ISerializer serializer))
+            var serializer = Writer<T>.Write;
+            
+            if (serializer != null)
             {
-                GenericSerializer<T> typedSerializer = (GenericSerializer<T>) serializer;
-                typedSerializer.Write(writer, value);
+                serializer(writer, value);
             }
             else
                 ThrowIfWriterNotFound<T>();
@@ -117,16 +89,18 @@ namespace jettnet.mirage.bitpacking
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T Read<T>(this JettReader reader)
         {
-            if(_serializers.TryGetValue(typeof(T), out ISerializer serializer))
+            var deserializer = Reader<T>.Read;
+            
+            if(deserializer != null)
             {
-                GenericSerializer<T> typedSerializer = (GenericSerializer<T>) serializer;
-                return typedSerializer.Read(reader);
+                return deserializer(reader);
             }
             
             ThrowIfReaderNotFound<T>();
             return default;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void ThrowIfReaderNotFound<T>()
         {
             throw new
