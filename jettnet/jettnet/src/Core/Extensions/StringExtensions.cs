@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using jettnet.mirage.bitpacking;
 
-namespace jettnet.Core.Extensions
+namespace jettnet.mirage.extensions
 {
     public static class StringExtensions
     {
