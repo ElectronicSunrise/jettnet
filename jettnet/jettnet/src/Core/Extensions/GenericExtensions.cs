@@ -35,7 +35,7 @@ namespace jettnet.mirage.bitpacking
             Writer<long>.Write = (writer, value) => writer.WritePackedInt64(value);
             
             Reader<ulong>.Read = (reader) => reader.ReadPackedUInt64();
-            Writer<ulong>.Write = (writer, value) => writer.WriteUInt64(value);
+            Writer<ulong>.Write = (writer, value) => writer.WritePackedUInt64(value);
             
             Reader<short>.Read = (reader) => reader.ReadInt16();
             Writer<short>.Write = (writer, value) => writer.WriteInt16(value);
