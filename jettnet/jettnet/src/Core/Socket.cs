@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net;
 using jettnet.logging;
 
 namespace jettnet

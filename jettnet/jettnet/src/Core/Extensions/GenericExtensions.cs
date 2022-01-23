@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using jettnet.Core.Extensions;
 using jettnet.mirage.bitpacking;
 
 namespace jettnet.mirage.extensions
