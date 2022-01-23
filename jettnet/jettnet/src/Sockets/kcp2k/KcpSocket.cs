@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Xml;
 using jettnet.logging;
 using kcp2k;
 
@@ -9,21 +10,18 @@ namespace jettnet.sockets
 {
     public class KcpSocket : Socket
     {
-        private readonly List<IPEndPoint> _connections = new List<IPEndPoint>();
+        private KcpClient _client;
+        private KcpServer _server;
 
-        private readonly Dictionary<int, ConnectionData> _connectionsById = new Dictionary<int, ConnectionData>();
-        private          KcpClient                       _client;
-        private          KcpServer                       _server;
-        
-        public KcpSocket(Logger logger) : base(logger) {} 
+        public KcpSocket(Logger logger) : base(logger)
+        {
+        }
 
         public override void StartClient(string address, ushort port)
         {
             _client = new KcpClient(ClientConnected,
                                     (data, channel) => ClientDataRecv.Invoke(data),
                                     ClientDisconnected);
-
-            Log.Error = (msg) => _logger.Log(msg, LogLevel.Error);
             ConfigureLogger();
 
             _client.Connect(address, port, true, 10, 0, false, 4096, 4096, 5000);
@@ -33,6 +31,7 @@ namespace jettnet.sockets
         {
             Log.Info    = (msg) => _logger.Log(msg, LogLevel.Info);
             Log.Warning = (msg) => _logger.Log(msg, LogLevel.Warning);
+            Log.Error   = (msg) => _logger.Log(msg, LogLevel.Error);
         }
 
         public override void StartServer(ushort port)
@@ -46,12 +45,21 @@ namespace jettnet.sockets
 
             _server.Start(port);
         }
-        
+
+        private ConnectionData KcpIdToJettConnection(int id)
+        {
+            IPEndPoint endPoint = _server.GetClientEndpoint(id);
+
+            return endPoint == null
+                ? default
+                : new ConnectionData(id, endPoint.Address.ToString(), (ushort) endPoint.Port);
+        }
+
         public override bool ClientActive()
         {
             return _client != null && _client.connected;
         }
-        
+
         public override bool ServerActive()
         {
             return _server != null && _server.IsActive();
@@ -59,7 +67,16 @@ namespace jettnet.sockets
 
         public override bool AddressExists(string address)
         {
-            return _connections.FirstOrDefault(x => x.Address.ToString() == address) != null;
+            if (_server == null)
+                throw new InvalidOperationException("You may only check address's as the server!");
+
+            foreach (var kvp in _server.connections)
+            {
+                if (_server.GetClientEndpoint(kvp.Key).Address.ToString() == address)
+                    return true;
+            }
+
+            return false;
         }
 
         public override void DisconnectClient(int id)
@@ -69,34 +86,30 @@ namespace jettnet.sockets
 
         public override bool TryGetConnection(int id, out ConnectionData connection)
         {
-            if (_connectionsById.TryGetValue(id, out ConnectionData data))
-            {
-                connection = data;
-                return true;
-            }
+            if (_server == null)
+                throw new InvalidOperationException("You may only get connections as the server!");
 
-            connection = default;
-            return false;
+            ConnectionData conn = KcpIdToJettConnection(id);
+
+            connection = conn;
+
+            return !conn.Equals(default);
         }
 
         private void ServerConnect(int id)
         {
-            if (!(_server.connections[id].GetRemoteEndPoint() is IPEndPoint remoteEndPoint)) 
+            if (!(_server.connections[id].GetRemoteEndPoint() is IPEndPoint remoteEndPoint))
                 return;
 
-            ConnectionData data = new ConnectionData(id, remoteEndPoint.Address.ToString(), (ushort)remoteEndPoint.Port);
-
-            _connectionsById.Add(id, data);
-            _connections.Add(remoteEndPoint);
+            ConnectionData data =
+                new ConnectionData(id, remoteEndPoint.Address.ToString(), (ushort) remoteEndPoint.Port);
 
             ServerConnected?.Invoke(data);
         }
 
         private void ServerDisconnect(int id)
         {
-            ServerDisconnected?.Invoke(_connectionsById[id]);
-            _connections.Remove(_server.connections[id].GetRemoteEndPoint() as IPEndPoint);
-            _connectionsById.Remove(id);
+            ServerDisconnected?.Invoke(KcpIdToJettConnection(id));
         }
 
         public override void FetchIncoming()
