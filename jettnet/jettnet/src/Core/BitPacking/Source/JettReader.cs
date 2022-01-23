@@ -368,7 +368,7 @@ namespace jettnet.mirage.bitpacking
         /// <typeparam name="T"></typeparam>
         /// <param name="value"></param>
         /// <param name="byteSize"></param>
-        public void PadAndCopy<T>(int byteSize, out T value) where T : unmanaged
+        public void ReadStruct<T>(int byteSize, out T value) where T : unmanaged
         {
             PadToByte();
             int newPosition = bitPosition + (64 * byteSize);

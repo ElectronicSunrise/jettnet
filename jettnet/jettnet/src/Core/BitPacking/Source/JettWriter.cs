@@ -368,7 +368,7 @@ namespace jettnet.mirage.bitpacking
         /// <typeparam name="T"></typeparam>
         /// <param name="value"></param>
         /// <param name="byteSize">size of struct, in bytes</param>
-        public void PadAndCopy<T>(in T value) where T : unmanaged
+        public void WriteStruct<T>(in T value) where T : unmanaged
         {
             this.PadToByte();
             int newPosition = this.bitPosition + (8 * sizeof(T));
