@@ -23,8 +23,8 @@ namespace jettnet
         public JettServer(ushort port = 7777, Socket socket = null, Logger logger = null,
                           params string[] extraMessageAssemblies)
         {
-            _socket = socket ?? new KcpSocket();
             _logger = logger ?? new Logger();
+            _socket = socket ?? new KcpSocket(_logger);
             _port   = port;
 
             _messenger = new Messenger(_socket, _logger, extraMessageAssemblies);

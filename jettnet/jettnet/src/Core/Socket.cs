@@ -1,10 +1,18 @@
 ﻿using System;
 using System.Net;
+using jettnet.logging;
 
 namespace jettnet
 {
     public abstract class Socket
     {
+        protected readonly Logger _logger;
+        
+        protected Socket(Logger logger)
+        {
+            _logger = logger;
+        }
+        
         // we connected to a server
         public Action ClientConnected;
 

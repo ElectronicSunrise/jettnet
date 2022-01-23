@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using jettnet.logging;
 using kcp2k;
 
 namespace jettnet.sockets
@@ -13,6 +14,8 @@ namespace jettnet.sockets
         private readonly Dictionary<int, ConnectionData> _connectionsById = new Dictionary<int, ConnectionData>();
         private          KcpClient                       _client;
         private          KcpServer                       _server;
+        
+        public KcpSocket(Logger logger) : base(logger) {} 
 
         public override void StartClient(string address, ushort port)
         {
@@ -20,13 +23,16 @@ namespace jettnet.sockets
                                     (data, channel) => ClientDataRecv.Invoke(data),
                                     ClientDisconnected);
 
-            // wrapper handles logging
-            // so kcp can stfu,
-            // unless error related
-            Log.Warning = _ => { };
-            Log.Info    = _ => { };
+            Log.Error = (msg) => _logger.Log(msg, LogLevel.Error);
+            ConfigureLogger();
 
             _client.Connect(address, port, true, 10, 0, false, 4096, 4096, 5000);
+        }
+
+        private void ConfigureLogger()
+        {
+            Log.Info    = (msg) => _logger.Log(msg, LogLevel.Info);
+            Log.Warning = (msg) => _logger.Log(msg, LogLevel.Warning);
         }
 
         public override void StartServer(ushort port)
@@ -36,9 +42,7 @@ namespace jettnet.sockets
                                     ServerDisconnect,
                                     true, true, 10, 0, false, 4096, 4096, 5000);
 
-            Log.Error   = _ => { };
-            Log.Warning = _ => { };
-            Log.Info    = _ => { };
+            ConfigureLogger();
 
             _server.Start(port);
         }

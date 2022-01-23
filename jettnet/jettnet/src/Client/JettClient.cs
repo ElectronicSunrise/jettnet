@@ -21,7 +21,7 @@ namespace jettnet
         public JettClient(Socket socket = null, Logger logger = null, params string[] extraMessageAssemblies)
         {
             _logger    = logger ?? new Logger();
-            _socket    = socket ?? new KcpSocket();
+            _socket    = socket ?? new KcpSocket(_logger);
             _messenger = new Messenger(_socket, _logger, extraMessageAssemblies);
         }
 

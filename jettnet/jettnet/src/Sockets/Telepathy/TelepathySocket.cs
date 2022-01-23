@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using jettnet.logging;
 using Telepathy;
 
 namespace jettnet.sockets
@@ -11,12 +12,12 @@ namespace jettnet.sockets
         private Server _server;
         private Client _client;
 
-        private int _maxMessageSize = 1200;
-        private int _processLimit   = 100;
+        private readonly int _maxMessageSize;
+        private readonly int _processLimit;
 
         private readonly List<ConnectionData> _connections = new List<ConnectionData>();
 
-        public TelepathySocket(int maxMessageSize = 1200, int processLimit = 100) : base()
+        public TelepathySocket(Logger logger, int maxMessageSize = 1200, int processLimit = 100) : base(logger)
         {
             _maxMessageSize = maxMessageSize;
             _processLimit   = processLimit;
@@ -69,6 +70,8 @@ namespace jettnet.sockets
                 OnConnected = (id) =>
                 {
                     ConnectionData connection = TelepathyIdToConnection(id);
+                    
+                    _connections.Add(connection);
 
                     ServerConnected?.Invoke(connection);
                 },
@@ -76,6 +79,8 @@ namespace jettnet.sockets
                 {
                     ConnectionData connection = TelepathyIdToConnection(id);
 
+                    _connections.Remove(connection);
+                    
                     ServerDisconnected?.Invoke(connection);
                 },
                 OnData = (id, data) => ServerDataRecv?.Invoke(id, data)
