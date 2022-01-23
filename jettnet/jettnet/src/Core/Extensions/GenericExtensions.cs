@@ -26,10 +26,10 @@ namespace jettnet.mirage.bitpacking
             Writer<uint>.Write = (writer, value) => writer.WritePackedUInt32(value);
             
             Reader<float>.Read = (reader) => reader.ReadSingle();
-            Writer<float>.Write = (writer, value) => writer.Write(value);
+            Writer<float>.Write = (writer, value) => writer.WriteSingle(value);
             
             Reader<double>.Read = (reader) => reader.ReadDouble();
-            Writer<double>.Write = (writer, value) => writer.Write(value);
+            Writer<double>.Write = (writer, value) => writer.WriteDouble(value);
             
             Reader<long>.Read = (reader) => reader.ReadPackedInt64();
             Writer<long>.Write = (writer, value) => writer.WritePackedInt64(value);
@@ -38,22 +38,22 @@ namespace jettnet.mirage.bitpacking
             Writer<ulong>.Write = (writer, value) => writer.WriteUInt64(value);
             
             Reader<short>.Read = (reader) => reader.ReadInt16();
-            Writer<short>.Write = (writer, value) => writer.Write(value);
+            Writer<short>.Write = (writer, value) => writer.WriteInt16(value);
             
             Reader<ushort>.Read = (reader) => reader.ReadUInt16();
-            Writer<ushort>.Write = (writer, value) => writer.Write(value);
+            Writer<ushort>.Write = (writer, value) => writer.WriteUInt16(value);
             
             Reader<sbyte>.Read = (reader) => reader.ReadSByte();
-            Writer<sbyte>.Write = (writer, value) => writer.Write(value);
+            Writer<sbyte>.Write = (writer, value) => writer.WriteSByte(value);
             
             Reader<byte>.Read = (reader) => reader.ReadByte();
-            Writer<byte>.Write = (writer, value) => writer.Write(value);
+            Writer<byte>.Write = (writer, value) => writer.WriteByte(value);
             
             Reader<bool>.Read = (reader) => reader.ReadBoolean();
-            Writer<bool>.Write = (writer, value) => writer.Write(value);
+            Writer<bool>.Write = (writer, value) => writer.WriteBoolean(value);
             
             Reader<string>.Read = (reader) => reader.ReadString();
-            Writer<string>.Write = (writer, value) => writer.Write(value);
+            Writer<string>.Write = (writer, value) => writer.WriteString(value);
         }
 
         /// <summary>

@@ -37,11 +37,12 @@ namespace jettnet.sockets
 
         public override void StartClient(string address, ushort port)
         {
-            _client = new Client(_maxMessageSize);
-
-            _client.OnConnected    = () => ClientConnected?.Invoke();
-            _client.OnDisconnected = () => ClientDisconnected?.Invoke();
-            _client.OnData         = (data) => ClientDataRecv?.Invoke(data);
+            _client = new Client(_maxMessageSize)
+            {
+                OnConnected    = () => ClientConnected?.Invoke(),
+                OnDisconnected = () => ClientDisconnected?.Invoke(),
+                OnData         = (data) => ClientDataRecv?.Invoke(data)
+            };
 
             _client.Connect(address, port);
         }
