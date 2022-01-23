@@ -237,10 +237,20 @@ namespace jettnet // v1.5
         {
             _pool = pool;
         }
-
-        public new void Dispose()
+        
+        // from mirage
+        void IDisposable.Dispose() => Dispose(true);
+        
+        protected override void Dispose(bool disposing)
         {
-            _pool.Return(this);
+            base.Dispose(disposing);
+
+            // only put back into the pool is Dispose was called
+            // => dont put it back for finalize
+            if (disposing)
+            {
+                _pool.Return(this);
+            }
         }
     }
 }
