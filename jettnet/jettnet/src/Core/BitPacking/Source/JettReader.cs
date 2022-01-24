@@ -368,10 +368,10 @@ namespace jettnet.mirage.bitpacking
         /// <typeparam name="T"></typeparam>
         /// <param name="value"></param>
         /// <param name="byteSize"></param>
-        public void ReadStruct<T>(int byteSize, out T value) where T : unmanaged
+        public void ReadStruct<T>(out T value) where T : unmanaged
         {
             PadToByte();
-            int newPosition = bitPosition + (64 * byteSize);
+            int newPosition = bitPosition + (8 * sizeof(T));
             CheckNewLength(newPosition);
 
             byte* startPtr = ((byte*)longPtr) + (bitPosition >> 3);
