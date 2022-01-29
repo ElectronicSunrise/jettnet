@@ -1,0 +1,74 @@
+﻿using System;
+using System.IO;
+using System.Text;
+using jettnet.mirage.bitpacking;
+
+namespace jettnet.mirage.extensions
+{
+    public static class StringExtensions
+    {
+        // https://github.com/MirageNet/Mirage/blob/master/Assets/Mirage/Runtime/Serialization/StringExtensions.cs
+
+        /// <summary>
+        /// Defaults MTU
+        /// <para>Can be changed by user if they need to</para>
+        /// </summary>
+        public static int MaxStringLength = JettConstants.DefaultBufferSize;
+
+        private static readonly UTF8Encoding encoding     = new UTF8Encoding(false, true);
+        private static readonly byte[]       stringBuffer = new byte[MaxStringLength];
+
+        /// <param name="value">string or null</param>
+        public static void WriteString(this JettWriter writer, string value)
+        {
+            // write 0 for null support, increment real size by 1
+            // (note: original HLAPI would write "" for null strings, but if a
+            //        string is null on the server then it should also be null
+            //        on the client)
+            if (value == null)
+            {
+                writer.WriteUInt16(0);
+                return;
+            }
+
+            // write string with same method as NetworkReader
+            // convert to byte[]
+            int size = encoding.GetBytes(value, 0, value.Length, stringBuffer, 0);
+
+            // check if within max size
+            if (size >= MaxStringLength)
+            {
+                throw new
+                    DataMisalignedException($"NetworkWriter.Write(string) too long: {size}. Limit: {MaxStringLength}");
+            }
+
+            // write size and bytes
+            writer.WriteUInt16(checked((ushort) (size + 1)));
+            writer.WriteBytes(stringBuffer, 0, size);
+        }
+
+        /// <returns>string or null</returns>
+        /// <exception cref="ArgumentException">Throws if invalid utf8 string is received</exception>
+        public static string ReadString(this JettReader reader)
+        {
+            // read number of bytes
+            ushort size = reader.ReadUInt16();
+
+            if (size == 0)
+                return null;
+
+            int realSize = size - 1;
+
+            // make sure it's within limits to avoid allocation attacks etc.
+            if (realSize >= MaxStringLength)
+            {
+                throw new EndOfStreamException($"ReadString too long: {realSize}. Limit is: {MaxStringLength}");
+            }
+
+            ArraySegment<byte> data = reader.ReadBytesSegment(realSize);
+
+            // convert directly from buffer to string via encoding
+            return encoding.GetString(data.Array, data.Offset, data.Count);
+        }
+    }
+}
