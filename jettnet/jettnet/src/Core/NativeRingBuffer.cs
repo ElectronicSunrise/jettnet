@@ -20,12 +20,12 @@ namespace jettnet {
 
         public NativeRingBuffer(int elementSize, int elementCount) {
             this.elementSize = elementSize;
-            this.elementCount = elementCount;
+            this.elementCount = elementCount + 1; // plus 1 since there is always one element between read and write pointer which cant be written to
 
-            buffer = (void*) Marshal.AllocHGlobal(elementSize * elementCount);
+            buffer = (void*) Marshal.AllocHGlobal(this.elementSize * this.elementCount);
             writePointer = buffer;
             readPointer = buffer;
-            tail = (byte*) buffer + (elementSize * elementCount);
+            tail = (byte*) buffer + (this.elementSize * this.elementCount);
         }
 
         /// <summary>
@@ -119,16 +119,8 @@ namespace jettnet {
                     nextElement = buffer;
                 }
 
-                // Check if the buffer is empty, checks if the next element is the one before the write pointer
-                // the write might not be done writing, thats why we need to wait for the write pointer to advance
-                void* elementBeforeWritePointer;
-                if (writePointer != buffer) {
-                    elementBeforeWritePointer = (byte*) writePointer - elementSize;
-                } else {
-                    elementBeforeWritePointer = (byte*) tail - elementSize;
-                }
-
-                if (nextElement == (byte*) writePointer - elementSize) {
+                // Check if the buffer is empty, checks if the next element is the write pointer
+                if (nextElement == writePointer) {
                     return null;
                 }
 
@@ -164,16 +156,8 @@ namespace jettnet {
                         nextElement = buffer;
                     }
 
-                    // Check if the buffer is empty, checks if the next element is the one before the write pointer
-                    // the write might not be done writing, thats why we need to wait for the write pointer to advance
-                    void* elementBeforeWritePointer;
-                    if (writePointer != buffer) {
-                        elementBeforeWritePointer = (byte*) writePointer - elementSize;
-                    } else {
-                        elementBeforeWritePointer = (byte*) tail - elementSize;
-                    }
-
-                    if (nextElement == (byte*) writePointer - elementSize) {
+                    // Check if the buffer is empty, checks if the next element is the write pointer
+                    if (nextElement == writePointer) {
                         continue;
                     }
 
