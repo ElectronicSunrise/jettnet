@@ -2,11 +2,13 @@
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace jettnet {
+namespace jettnet 
+{
     /// <summary>
     /// Single producer, single consumer, FIFO thread safe ring buffer
     /// </summary>
-    public unsafe class NativeRingBuffer {
+    public unsafe class NativeRingBuffer 
+    {
 
         private SpinLock _spinLock;
 
