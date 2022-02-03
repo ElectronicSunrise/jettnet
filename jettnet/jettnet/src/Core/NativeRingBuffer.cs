@@ -2,60 +2,72 @@
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace jettnet {
+namespace jettnet 
+{
     /// <summary>
     /// Single producer, single consumer, FIFO thread safe ring buffer
     /// </summary>
-    public unsafe class NativeRingBuffer {
+    public unsafe class NativeRingBuffer 
+    {
 
-        private SpinLock spinLock;
+        private SpinLock _spinLock;
 
-        private void* buffer;
-        private void* readPointer;
-        private void* writePointer;
-        private void* tail;
+        private void* _buffer;
+        private void* _readPointer;
+        private void* _writePointer;
+        private void* _tail;
 
-        private int elementSize;
-        private int elementCount;
+        private int _elementSize;
+        private int _elementCount;
 
-        public NativeRingBuffer(int elementSize, int elementCount) {
-            this.elementSize = elementSize;
-            this.elementCount = elementCount + 1; // plus 1 since there is always one element between read and write pointer which cant be written to
+        public NativeRingBuffer(int elementSize, int elementCount) 
+        {
+            this._elementSize = elementSize;
+            this._elementCount = elementCount + 1; // plus 1 since there is always one element between read and write pointer which cant be written to
 
-            buffer = (void*) Marshal.AllocHGlobal(this.elementSize * this.elementCount);
-            writePointer = buffer;
-            readPointer = buffer;
-            tail = (byte*) buffer + (this.elementSize * this.elementCount);
+            _buffer = (void*) Marshal.AllocHGlobal(this._elementSize * this._elementCount);
+            _writePointer = _buffer;
+            _readPointer = _buffer;
+            _tail = (byte*) _buffer + (this._elementSize * this._elementCount);
         }
 
         /// <summary>
         /// Reserves a new element in the buffer
         /// </summary>
         /// <returns>Returns a memory location in the buffer or null if buffer is full</returns>
-        public void* Reserve() {
+        public void* Reserve() 
+        {
             void* writePosition = null;
 
             bool lockTaken = false;
-            try {
-                spinLock.Enter(ref lockTaken);
+            try 
+            {
+                _spinLock.Enter(ref lockTaken);
 
                 // Get next element position
-                void* nextElement = (byte*) writePointer + elementSize;
-                if (nextElement == tail) {
-                    nextElement = buffer;
+                void* nextElement = (byte*) _writePointer + _elementSize;
+                if (nextElement == _tail) 
+                {
+                    nextElement = _buffer;
                 }
 
                 // Check if the buffer is full
-                if (nextElement == readPointer) {
+                if (nextElement == _readPointer) 
+                {
                     return null;
                 }
 
-                writePosition = writePointer;
+                writePosition = _writePointer;
 
                 // Advance write pointer
-                writePointer = nextElement;
-            } finally {
-                if (lockTaken) spinLock.Exit(false);
+                _writePointer = nextElement;
+            } 
+            finally 
+            {
+                if (lockTaken)
+                {
+                    _spinLock.Exit(false);
+                }
             }
 
             return writePosition;
@@ -66,38 +78,49 @@ namespace jettnet {
         /// </summary>
         /// <param name="sleepInterval">how long thread will sleep if buffer is full</param>
         /// <returns>Returns a memory location in the buffer</returns>
-        public void* SleepReserve(int sleepInterval = 1) {
+        public void* SleepReserve(int sleepInterval = 1) 
+        {
             void* writePosition = null;
 
-            do {
+            do 
+            {
                 bool lockTaken = false;
-                try {
-                    spinLock.Enter(ref lockTaken);
+                try 
+                {
+                    _spinLock.Enter(ref lockTaken);
 
                     // Get next element position
-                    void* nextElement = (byte*) writePointer + elementSize;
-                    if (nextElement == tail) {
-                        nextElement = buffer;
+                    void* nextElement = (byte*) _writePointer + _elementSize;
+                    if (nextElement == _tail) 
+                    {
+                        nextElement = _buffer;
                     }
 
                     // Check if the buffer is full
-                    if (nextElement == readPointer) {
+                    if (nextElement == _readPointer) 
+                    {
                         continue;
                     }
 
-                    writePosition = writePointer;
+                    writePosition = _writePointer;
 
                     // Advance write pointer
-                    writePointer = nextElement;
-                } finally {
-                    if (lockTaken) spinLock.Exit(false);
+                    _writePointer = nextElement;
+                } 
+                finally 
+                {
+                    if (lockTaken)
+                    { 
+                        _spinLock.Exit(false);
+                    }
 
                     // spin wait and try again if pointer is null
                     if (writePosition == null) {
                         Thread.Sleep(sleepInterval);
                     }
                 }
-            } while (writePosition == null);
+            } 
+            while (writePosition == null);
 
             return writePosition;
         }
@@ -106,30 +129,39 @@ namespace jettnet {
         /// Returns a memory location in the buffer to the next element that can be read
         /// </summary>
         /// <returns>Returns a memory location in the buffer or null if buffer is empty</returns>
-        public void* Read() {
+        public void* Read() 
+        {
             void* readPosition = null;
 
             bool lockTaken = false;
-            try {
-                spinLock.Enter(ref lockTaken);
+            try 
+            {
+                _spinLock.Enter(ref lockTaken);
 
                 // Get next element position
-                void* nextElement = (byte*) readPointer + elementSize;
-                if (nextElement == tail) {
-                    nextElement = buffer;
+                void* nextElement = (byte*) _readPointer + _elementSize;
+                if (nextElement == _tail) 
+                {
+                    nextElement = _buffer;
                 }
 
                 // Check if the buffer is empty, checks if the next element is the write pointer
-                if (nextElement == writePointer) {
+                if (nextElement == _writePointer) 
+                {
                     return null;
                 }
 
-                readPosition = readPointer;
+                readPosition = _readPointer;
 
                 // Advance read pointer
-                readPointer = nextElement;
-            } finally {
-                if (lockTaken) spinLock.Exit(false);
+                _readPointer = nextElement;
+            } 
+            finally 
+            {
+                if (lockTaken) 
+                { 
+                    _spinLock.Exit(false);
+                }
             }
 
 
@@ -142,38 +174,50 @@ namespace jettnet {
         /// </summary>
         /// <param name="sleepInterval">how long thread will sleep if buffer is empty</param>
         /// <returns>Returns a memory location in the buffer</returns>
-        public void* SleepRead(int sleepInterval = 1) {
+        public void* SleepRead(int sleepInterval = 1) 
+        {
             void* readPosition = null;
 
-            do {
+            do 
+            {
                 bool lockTaken = false;
-                try {
-                    spinLock.Enter(ref lockTaken);
+                try 
+                {
+                    _spinLock.Enter(ref lockTaken);
 
                     // Get next element position
-                    void* nextElement = (byte*) readPointer + elementSize;
-                    if (nextElement == tail) {
-                        nextElement = buffer;
+                    void* nextElement = (byte*) _readPointer + _elementSize;
+                    if (nextElement == _tail) 
+                    {
+                        nextElement = _buffer;
                     }
 
                     // Check if the buffer is empty, checks if the next element is the write pointer
-                    if (nextElement == writePointer) {
+                    if (nextElement == _writePointer) 
+                    {
                         continue;
                     }
 
-                    readPosition = readPointer;
+                    readPosition = _readPointer;
 
                     // Advance read pointer
-                    readPointer = nextElement;
-                } finally {
-                    if (lockTaken) spinLock.Exit(false);
+                    _readPointer = nextElement;
+                } 
+                finally 
+                {
+                    if (lockTaken)
+                    { 
+                        _spinLock.Exit(false);
+                    }
 
                     // spin wait and try again if pointer is null
-                    if (readPosition == null) {
+                    if (readPosition == null) 
+                    {
                         Thread.Sleep(sleepInterval);
                     }
                 }
-            } while (readPosition == null);
+            } 
+            while (readPosition == null);
 
             return readPosition;
         }
