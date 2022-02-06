@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 using jettnet.mirage.bitpacking;
-using jettnet.logging;
+using jettnet.core;
 
 //         _        _    _                 _   
 //        (_)      | |  | |               | |  
@@ -106,7 +105,7 @@ namespace jettnet // v1.5
         }
     }
 
-    public static class IdExtenstions
+    public static class IdExtensions
     {
         private static readonly MD5                     _crypto = MD5.Create();
         private static readonly Dictionary<string, int> _cache  = new Dictionary<string, int>();
@@ -125,29 +124,6 @@ namespace jettnet // v1.5
         }
     }
 
-    // https://docs.microsoft.com/en-us/dotnet/standard/collections/thread-safe/how-to-create-an-object-pool
-    public class ObjectPool<T>
-    {
-        private readonly Func<T>          _objectGenerator;
-        private readonly ConcurrentBag<T> _objects;
-
-        public ObjectPool(Func<T> objectGenerator)
-        {
-            _objectGenerator = objectGenerator ?? throw new ArgumentNullException(nameof(objectGenerator));
-            _objects         = new ConcurrentBag<T>();
-        }
-
-        public T Get()
-        {
-            return _objects.TryTake(out T item) ? item : _objectGenerator();
-        }
-
-        public void Return(T item)
-        {
-            _objects.Add(item);
-        }
-    }
-
     public interface IJettMessage<T> : IJettMessage where T : struct
     {
         T Deserialize(JettReader reader);
@@ -160,14 +136,14 @@ namespace jettnet // v1.5
 
     public class JettWriterPool
     {
-        private readonly ObjectPool<PooledJettWriter> _writers;
+        private readonly Pool<PooledJettWriter> _writers;
 
         public JettWriterPool(Logger logger)
         {
             Func<PooledJettWriter> generator = () =>
                 new PooledJettWriter(this, JettConstants.DefaultBufferSize, true, logger);
 
-            _writers = new ObjectPool<PooledJettWriter>(generator);
+            _writers = new Pool<PooledJettWriter>(generator);
         }
 
         public PooledJettWriter Get()
@@ -186,12 +162,12 @@ namespace jettnet // v1.5
 
     public class JettReaderPool
     {
-        private readonly ObjectPool<PooledJettReader> _readers;
+        private readonly Pool<PooledJettReader> _readers;
 
         public JettReaderPool(Logger logger)
         {
             Func<PooledJettReader> generator = () => new PooledJettReader(this, logger);
-            _readers = new ObjectPool<PooledJettReader>(generator);
+            _readers = new Pool<PooledJettReader>(generator);
         }
 
         public PooledJettReader Get(ArraySegment<byte> data)
