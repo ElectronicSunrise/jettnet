@@ -2,7 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using jettnet.logging;
+using jettnet.core;
 using jettnet.sockets;
 
 namespace jettnet.punching

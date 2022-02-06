@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using jettnet.core;
 using jettnet.mirage.bitpacking;
-using jettnet.logging;
 
 namespace jettnet
 {
@@ -37,7 +37,7 @@ namespace jettnet
 
         #region Sending
 
-        public void SendManyMessages(IJettMessage msg, IEnumerable<int> connIds, int channel = JettChannels.Reliable)
+        public void SendManyMessages(IJettMessage msg, IEnumerable<int> connIds, int channel = JettConstants.ReliableChannel)
         {
             using (PooledJettWriter writer = WriterPool.Get())
             {
@@ -55,7 +55,7 @@ namespace jettnet
             }
         }
 
-        public void SendManyDelegates(int msgId, Action<JettWriter> writeDelegate, IEnumerable<int> connIds, int channel = JettChannels.Reliable)
+        public void SendManyDelegates(int msgId, Action<JettWriter> writeDelegate, IEnumerable<int> connIds, int channel = JettConstants.ReliableChannel)
         {
             using (PooledJettWriter writer = WriterPool.Get())
             {
@@ -73,7 +73,7 @@ namespace jettnet
             }
         }
 
-        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, int channel = JettChannels.Reliable)
+        public void SendDelegate(int msgId, Action<JettWriter> writeDelegate, bool isServer, int connId, int channel = JettConstants.ReliableChannel)
         {
             using (PooledJettWriter writer = WriterPool.Get())
             {
@@ -88,7 +88,7 @@ namespace jettnet
             }
         }
 
-        public void SendMessage(IJettMessage msg, int connId, bool isServer, int channel = JettChannels.Reliable)
+        public void SendMessage(IJettMessage msg, int connId, bool isServer, int channel = JettConstants.ReliableChannel)
         {
             using (PooledJettWriter writer = WriterPool.Get())
             {

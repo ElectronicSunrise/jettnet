@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using jettnet.logging;
+using jettnet.core;
 using Telepathy2k;
 
 namespace jettnet.sockets

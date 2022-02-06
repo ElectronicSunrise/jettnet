@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using jettnet.core;
 using jettnet.mirage.bitpacking;
-using jettnet.logging;
 using jettnet.sockets;
 
 namespace jettnet
@@ -32,32 +32,32 @@ namespace jettnet
 
         #region Sending
 
-        public void Send(IJettMessage msg, int connectionId, int channel = JettChannels.Reliable)
+        public void Send(IJettMessage msg, int connectionId, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendMessage(msg, connectionId, true, channel);
         }
         
-        public void Send(IJettMessage msg, IEnumerable<int> connectionIds, int channel = JettChannels.Reliable)
+        public void Send(IJettMessage msg, IEnumerable<int> connectionIds, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendManyMessages(msg, connectionIds, channel);
         }
         
-        public void Send(string msgName, IEnumerable<int> connectionIds, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(string msgName, IEnumerable<int> connectionIds, Action<JettWriter> writeDelegate, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendManyDelegates(msgName.ToId(), writeDelegate, connectionIds, channel);
         }
 
-        public void Send(int msgId, IEnumerable<int> connectionIds, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(int msgId, IEnumerable<int> connectionIds, Action<JettWriter> writeDelegate, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendManyDelegates(msgId, writeDelegate, connectionIds, channel);
         }
         
-        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(string msgName, int clientId, Action<JettWriter> writeDelegate, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendDelegate(msgName.ToId(), writeDelegate, true, clientId, channel);
         }
 
-        public void Send(int msgId, int clientId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(int msgId, int clientId, Action<JettWriter> writeDelegate, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendDelegate(msgId, writeDelegate, true, clientId, channel);
         }

@@ -1,6 +1,6 @@
 ﻿using System;
+using jettnet.core;
 using jettnet.mirage.bitpacking;
-using jettnet.logging;
 using jettnet.sockets;
 
 namespace jettnet
@@ -34,19 +34,19 @@ namespace jettnet
 
         #region Sending
 
-        public void Send(IJettMessage msg, int channel = JettChannels.Reliable)
+        public void Send(IJettMessage msg, int channel = JettConstants.ReliableChannel)
         {
             // -1 because server client doesnt need to specify,
             // it's always going to the server
             _messenger.SendMessage(msg, -1, false, channel);
         }
 
-        public void Send(string msgName, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(string msgName, Action<JettWriter> writeDelegate, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendDelegate(msgName.ToId(), writeDelegate, false, -1, channel);
         }
 
-        public void Send(int msgId, Action<JettWriter> writeDelegate, int channel = JettChannels.Reliable)
+        public void Send(int msgId, Action<JettWriter> writeDelegate, int channel = JettConstants.ReliableChannel)
         {
             _messenger.SendDelegate(msgId, writeDelegate, false, -1, channel);
         }

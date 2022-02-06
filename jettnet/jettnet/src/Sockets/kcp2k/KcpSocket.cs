@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Net;
-using jettnet.logging;
+using jettnet.core;
 using kcp2p;
 
 namespace jettnet.sockets

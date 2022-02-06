@@ -1,5 +1,5 @@
 ﻿using System;
-using jettnet.logging;
+using jettnet.core;
 
 namespace jettnet
 {
