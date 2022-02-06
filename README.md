@@ -1,1 +1,1 @@
-# <img src="/jettnet/img/jnet.png"/> logo
+# <img src="/jettnet/img/jnet.png"/> 
