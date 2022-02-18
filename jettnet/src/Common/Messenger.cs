@@ -112,6 +112,9 @@ namespace jettnet
             Type type = typeof(T);
             int  id   = type.FullName.ToId();
 
+            if(_messageHandlers.ContainsKey(id))
+                throw new Exception($"A handler for message {id} has already been registered. Try renaming your message.");
+            
             _messageHandlers[id] = (reader, connData) =>
             {
                 try
@@ -136,6 +139,9 @@ namespace jettnet
 
         public void RegisterDelegateInternal(int msgId, Action<JettReader, JettConnection> readDelegate)
         {
+            if(_messageHandlers.ContainsKey(msgId))
+                throw new Exception($"A handler for message {msgId} has already been registered. Try renaming your message.");
+            
             _messageHandlers[msgId] = (reader, connData) =>
             {
                 try
