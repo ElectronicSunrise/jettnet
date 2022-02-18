@@ -18,7 +18,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\jettnet.core\jettnet.core\jettnet.core\jettnet.core.csproj" />
       <ProjectReference Include="..\jettnet.core\jettnet.core\jettnet.core.csproj" />
     </ItemGroup>
 </Project>

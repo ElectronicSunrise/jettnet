@@ -7,20 +7,26 @@ namespace jettnet
 {
     public static class IdExtensions
     {
-        private static readonly MD5                     _crypto = MD5.Create();
-        private static readonly Dictionary<string, int> _cache  = new Dictionary<string, int>();
-
         public static int ToId(this string s)
         {
-            if (_cache.TryGetValue(s, out int id))
-                return id;
+            return GetHash(s);
+        }
 
-            byte[] result   = _crypto.ComputeHash(Encoding.UTF8.GetBytes(s));
-            int    computed = BitConverter.ToInt32(result, 0);
+        private static int GetHash(string input)
+        {
+            // from mirror
+            unchecked
+            {
+                int hash = 23;
 
-            _cache.Add(s, computed);
+                for (int index = 0; index < input.Length; index++)
+                {
+                    char c = input[index];
+                    hash = hash * 31 + c;
+                }
 
-            return computed;
+                return hash;
+            }
         }
     }
 }
