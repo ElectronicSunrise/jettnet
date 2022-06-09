@@ -1,7 +1,7 @@
 // kcp client logic abstracted into a class.
 // for use in Mirror, DOTSNET, testing, etc.
 using System;
-using System.Net;
+using System.Net.Sockets;
 
 namespace kcp2p
 {
@@ -16,17 +16,20 @@ namespace kcp2p
         public KcpClientConnection connection;
         public bool connected;
 
-        public KcpClient(Action OnConnected, Action<ArraySegment<byte>, KcpChannel> OnData, Action OnDisconnected)
+        private readonly Socket _socket;
+
+        public KcpClient(Action OnConnected, Action<ArraySegment<byte>, KcpChannel> OnData, Action OnDisconnected, Socket socket = null)
         {
-            this.OnConnected = OnConnected;
-            this.OnData = OnData;
+            _socket             = socket;
+            this.OnConnected    = OnConnected;
+            this.OnData         = OnData;
             this.OnDisconnected = OnDisconnected;
         }
 
         // CreateConnection can be overwritten for where-allocation:
         // https://github.com/vis2k/where-allocation
         protected virtual KcpClientConnection CreateConnection() =>
-            new KcpClientConnection();
+            new KcpClientConnection(_socket);
 
         public void Connect(string address,
                             ushort port,

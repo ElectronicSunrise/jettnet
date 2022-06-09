@@ -5,6 +5,13 @@ namespace kcp2p
 {
     public class KcpClientConnection : KcpConnection
     {
+        private Socket _socket;
+        
+        public KcpClientConnection(Socket sock = null) : base()
+        {
+            _socket = sock;
+        }
+        
         // IMPORTANT: raw receive buffer always needs to be of 'MTU' size, even
         //            if MaxMessageSize is larger. kcp always sends in MTU
         //            segments and having a buffer smaller than MTU would
@@ -78,7 +85,7 @@ namespace kcp2p
                 CreateRemoteEndPoint(addresses, port);
 
                 // create socket
-                socket = new Socket(remoteEndPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+                socket = _socket ?? new Socket(remoteEndPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
 
                 // configure buffer sizes
                 ConfigureSocketBufferSizes(maximizeSendReceiveBuffersToOSLimit);

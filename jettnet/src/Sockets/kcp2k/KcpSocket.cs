@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Net.Sockets;
 using jettnet.core;
 using kcp2p;
 
@@ -12,25 +13,31 @@ namespace jettnet.sockets
 
         private static readonly byte[] ARBITRARY_PUNCH_BYTES = { 0x0, 0x0 };
 
-        public KcpSocket(Logger logger) : base(logger)
+        private readonly System.Net.Sockets.Socket _socket;
+
+        public KcpSocket(Logger logger, System.Net.Sockets.Socket socket = null) : base(logger)
         {
+            _socket = socket;
         }
 
         public void SendArbitrary(int count, IPEndPoint ep)
         {
-            System.Net.Sockets.Socket sock = _client != null ? _client.connection.socket : _server.socket;
-            
-            for (int i = 0; i < count; i++)
+            try
             {
-                sock.SendTo(ARBITRARY_PUNCH_BYTES, ep);
+                for (int i = 0; i < count; i++)
+                {
+                    _socket.SendTo(ARBITRARY_PUNCH_BYTES, ep);
+                }
             }
+            catch (SocketException) { }
+            catch(ObjectDisposedException){}
         }
 
         public override void StartClient(string address, ushort port)
         {
             _client = new KcpClient(ClientConnected,
                                     (data, channel) => ClientDataRecv.Invoke(data),
-                                    ClientDisconnected);
+                                    ClientDisconnected, _socket);
             ConfigureLogger();
 
             _client.Connect(address, port, true, 10, 0, false, 4096, 4096, 5000);
@@ -48,7 +55,7 @@ namespace jettnet.sockets
             _server = new KcpServer(ServerConnect,
                                     (id, data, channel) => ServerDataRecv.Invoke(id, data),
                                     ServerDisconnect,
-                                    true, true, 10, 0, false, 4096, 4096, 5000);
+                                    true, true, 10, 0, false, 4096, 4096, 5000, socket: _socket);
 
             ConfigureLogger();
 
@@ -61,7 +68,7 @@ namespace jettnet.sockets
 
             return endPoint == null
                 ? default
-                : new JettConnection(id, endPoint.Address.ToString(), (ushort) endPoint.Port);
+                : new JettConnection(id, endPoint.Address.ToString(), (ushort)endPoint.Port);
         }
 
         public override bool ClientActive()
@@ -111,7 +118,7 @@ namespace jettnet.sockets
                 return;
 
             JettConnection data =
-                new JettConnection(id, remoteEndPoint.Address.ToString(), (ushort) remoteEndPoint.Port);
+                new JettConnection(id, remoteEndPoint.Address.ToString(), (ushort)remoteEndPoint.Port);
 
             ServerConnected?.Invoke(data);
         }

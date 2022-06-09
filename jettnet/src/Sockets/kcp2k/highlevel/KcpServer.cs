@@ -75,20 +75,21 @@ namespace kcp2p
                          uint ReceiveWindowSize = Kcp.WND_RCV,
                          int Timeout = KcpConnection.DEFAULT_TIMEOUT,
                          uint MaxRetransmits = Kcp.DEADLINK,
-                         bool MaximizeSendReceiveBuffersToOSLimit = false)
+                         bool MaximizeSendReceiveBuffersToOSLimit = false, Socket socket = null)
         {
-            this.OnConnected = OnConnected;
-            this.OnData = OnData;
-            this.OnDisconnected = OnDisconnected;
-            this.DualMode = DualMode;
-            this.NoDelay = NoDelay;
-            this.Interval = Interval;
-            this.FastResend = FastResend;
-            this.CongestionWindow = CongestionWindow;
-            this.SendWindowSize = SendWindowSize;
-            this.ReceiveWindowSize = ReceiveWindowSize;
-            this.Timeout = Timeout;
-            this.MaxRetransmits = MaxRetransmits;
+            this.socket                              = socket;
+            this.OnConnected                         = OnConnected;
+            this.OnData                              = OnData;
+            this.OnDisconnected                      = OnDisconnected;
+            this.DualMode                            = DualMode;
+            this.NoDelay                             = NoDelay;
+            this.Interval                            = Interval;
+            this.FastResend                          = FastResend;
+            this.CongestionWindow                    = CongestionWindow;
+            this.SendWindowSize                      = SendWindowSize;
+            this.ReceiveWindowSize                   = ReceiveWindowSize;
+            this.Timeout                             = Timeout;
+            this.MaxRetransmits                      = MaxRetransmits;
             this.MaximizeSendReceiveBuffersToOSLimit = MaximizeSendReceiveBuffersToOSLimit;
 
             // create newClientEP either IPv4 or IPv6
@@ -126,19 +127,26 @@ namespace kcp2p
                 Log.Warning("KCP: server already started!");
             }
 
+            bool newSocket = socket == null;
+            
             // listen
             if (DualMode)
             {
-                // IPv6 socket with DualMode
-                socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
-                socket.DualMode = true;
-                socket.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
+                if (newSocket)
+                {
+                    socket          = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                    socket.DualMode = true;
+                    socket.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
+                }
             }
             else
             {
-                // IPv4 socket
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                socket.Bind(new IPEndPoint(IPAddress.Any, port));
+                if (newSocket)
+                {
+                    // IPv4 socket
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    socket.Bind(new IPEndPoint(IPAddress.Any, port));
+                }
             }
 
             // configure socket buffer size.
