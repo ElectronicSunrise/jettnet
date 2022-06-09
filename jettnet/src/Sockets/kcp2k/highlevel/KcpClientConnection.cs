@@ -112,6 +112,10 @@ namespace kcp2p
                         //            received msgLength. otherwise the excess
                         //            data would be silently lost.
                         //            (see ReceiveFrom documentation)
+                        
+                        if(msgLength == 2)
+                            return;
+                        
                         if (msgLength <= rawReceiveBuffer.Length)
                         {
                             //Log.Debug($"KCP: client raw recv {msgLength} bytes = {BitConverter.ToString(buffer, 0, msgLength)}");

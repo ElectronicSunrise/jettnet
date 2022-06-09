@@ -10,8 +10,20 @@ namespace jettnet.sockets
         private KcpClient _client;
         private KcpServer _server;
 
+        private static readonly byte[] ARBITRARY_PUNCH_BYTES = { 0x0, 0x0 };
+
         public KcpSocket(Logger logger) : base(logger)
         {
+        }
+
+        public void SendArbitrary(int count, IPEndPoint ep)
+        {
+            System.Net.Sockets.Socket sock = _client != null ? _client.connection.socket : _server.socket;
+            
+            for (int i = 0; i < count; i++)
+            {
+                sock.SendTo(ARBITRARY_PUNCH_BYTES, ep);
+            }
         }
 
         public override void StartClient(string address, ushort port)
@@ -54,7 +66,7 @@ namespace jettnet.sockets
 
         public override bool ClientActive()
         {
-            return _client != null && _client.connected;
+            return _client is { connected: true };
         }
 
         public override bool ServerActive()

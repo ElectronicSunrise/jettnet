@@ -21,16 +21,21 @@ namespace jettnet.sockets
         {
             _maxMessageSize = maxMessageSize;
             _processLimit   = processLimit;
+
+            Log.Info    = msg => { logger.Log(msg); };
+            Log.Error   = msg => { logger.Log(msg, LogLevel.Error); };
+            Log.Warning = msg => { logger.Log(msg, LogLevel.Warning); };
         }
-        
+
         public override bool TryGetConnection(int id, out JettConnection jettConnection)
         {
             IPEndPoint clientEndPoint = _server.GetClientEndpoint(id);
 
             bool endpointExists = clientEndPoint != null;
 
-            jettConnection = endpointExists ?  new JettConnection(id, clientEndPoint.Address.ToString(), (ushort) clientEndPoint.Port)
-                                        : default;
+            jettConnection = endpointExists
+                ? new JettConnection(id, clientEndPoint.Address.ToString(), (ushort)clientEndPoint.Port)
+                : default;
 
             return endpointExists;
         }
@@ -71,7 +76,7 @@ namespace jettnet.sockets
                 OnConnected = (id) =>
                 {
                     JettConnection jettConnection = TelepathyIdToConnection(id);
-                    
+
                     _connections.Add(jettConnection);
 
                     ServerConnected?.Invoke(jettConnection);
@@ -81,7 +86,7 @@ namespace jettnet.sockets
                     JettConnection jettConnection = TelepathyIdToConnection(id);
 
                     _connections.Remove(jettConnection);
-                    
+
                     ServerDisconnected?.Invoke(jettConnection);
                 },
                 OnData = (id, data) => ServerDataRecv?.Invoke(id, data)
@@ -93,8 +98,8 @@ namespace jettnet.sockets
         private JettConnection TelepathyIdToConnection(int id)
         {
             IPEndPoint ep = _server.GetClientEndpoint(id);
-            
-            JettConnection jettConnection = new JettConnection(id, ep.Address.ToString(), (ushort) ep.Port);
+
+            JettConnection jettConnection = new JettConnection(id, ep.Address.ToString(), (ushort)ep.Port);
             return jettConnection;
         }
 
@@ -142,7 +147,7 @@ namespace jettnet.sockets
         {
             Tick();
         }
-        
+
         public override void SendOutgoing()
         {
             Tick();

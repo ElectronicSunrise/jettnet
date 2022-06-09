@@ -1,6 +1,7 @@
 // kcp client logic abstracted into a class.
 // for use in Mirror, DOTSNET, testing, etc.
 using System;
+using System.Net;
 
 namespace kcp2p
 {
@@ -90,7 +91,7 @@ namespace kcp2p
             }
             else Log.Warning("KCP: can't send because client not connected!");
         }
-
+        
         public void Disconnect()
         {
             // only if connected

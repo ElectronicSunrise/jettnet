@@ -9,7 +9,7 @@ namespace kcp2p
 
     public abstract class KcpConnection
     {
-        protected Socket socket;
+        public Socket socket;
         protected EndPoint remoteEndPoint;
         internal Kcp kcp;
 

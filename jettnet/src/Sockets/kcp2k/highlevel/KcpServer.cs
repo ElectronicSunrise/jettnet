@@ -50,7 +50,7 @@ namespace kcp2p
         public uint MaxRetransmits;
 
         // state
-        protected Socket socket;
+        public Socket socket;
         EndPoint newClientEP;
 
         // IMPORTANT: raw receive buffer always needs to be of 'MTU' size, even
@@ -214,6 +214,10 @@ namespace kcp2p
                     //            msgLength. otherwise the excess data would be
                     //            silently lost.
                     //            (see ReceiveFrom documentation)
+                    
+                    if(msgLength == 2)
+                        return;
+                    
                     if (msgLength <= rawReceiveBuffer.Length)
                     {
                         // is this a new connection?
