@@ -189,7 +189,7 @@ namespace jettnet.steamworks.core
 
         private void CloseConnection(HSteamNetConnection connection, string disconnectReason) {
 #if UNITY_SERVER
-            SteamGameServerNetworkingSockets.CloseConnection(connection, 0, "Max connections", false);
+            SteamGameServerNetworkingSockets.CloseConnection(connection, 0, disconnectReason, false);
 #else
             SteamNetworkingSockets.CloseConnection(connection, 0, disconnectReason, false);
 #endif
