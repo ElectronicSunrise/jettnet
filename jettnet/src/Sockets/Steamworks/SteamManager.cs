@@ -1,10 +1,7 @@
 ﻿using jettnet.core;
 using Steamworks;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace jettnet.steamworks.core
 {
@@ -19,7 +16,7 @@ namespace jettnet.steamworks.core
 
         public bool Initialized { get; private set; }
 
-        public SteamManager(jettnet.core.Logger logger, Action OnQuitRequest, uint appID=480)
+        public SteamManager(jettnet.core.Logger logger, Action OnQuitRequest, uint appID = 480)
         {
             this.logger = logger;
 

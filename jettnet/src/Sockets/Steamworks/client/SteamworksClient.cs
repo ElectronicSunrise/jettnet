@@ -1,7 +1,6 @@
 using Steamworks;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace jettnet.steamworks.core
 {
@@ -40,7 +39,8 @@ namespace jettnet.steamworks.core
                 Connected = true;
                 OnConnectionEstablished?.Invoke(steamworksConnection);
 
-                if (dataReceivedBeforeConnectionBuffer.Count > 0) {
+                if (dataReceivedBeforeConnectionBuffer.Count > 0)
+                {
                     logger.Log("Client Processing data received before connection established", jettnet.core.LogLevel.Info);
 
                     foreach (Action dataToProcess in dataReceivedBeforeConnectionBuffer)

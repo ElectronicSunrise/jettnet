@@ -1,7 +1,4 @@
-using jettnet;
 using Steamworks;
-using System.Collections;
-using System.Collections.Generic;
 
 public struct SteamworksConnection
 {
