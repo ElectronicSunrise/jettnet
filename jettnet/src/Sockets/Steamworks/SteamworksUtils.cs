@@ -9,7 +9,7 @@ namespace jettnet.steamworks.core
 
         public const int MAX_MESSAGES = 256;
 
-        public static EResult SendData(HSteamNetConnection steamConnection, byte[] data, int channelID)
+        public static EResult SendData(HSteamNetConnection steamConnection, byte[] data, int channelID, bool usingSteamGameServices)
         {
             Array.Resize(ref data, data.Length + 1);
             data[data.Length - 1] = (byte)channelID;
@@ -38,11 +38,14 @@ namespace jettnet.steamworks.core
 
             EResult sendResult;
 
-#if UNITY_SERVER
-            sendResult = SteamGameServerNetworkingSockets.SendMessageToConnection(steamConnection, addressOfArray, (uint)data.Length, sendFlag, out _);
-#else
-            sendResult = SteamNetworkingSockets.SendMessageToConnection(steamConnection, addressOfArray, (uint)data.Length, sendFlag, out _);
-#endif
+            if (usingSteamGameServices)
+            {
+                sendResult = SteamGameServerNetworkingSockets.SendMessageToConnection(steamConnection, addressOfArray, (uint)data.Length, sendFlag, out _);
+            }
+            else
+            {
+                sendResult = SteamNetworkingSockets.SendMessageToConnection(steamConnection, addressOfArray, (uint)data.Length, sendFlag, out _);
+            }
 
             pinnedArray.Free();
 
@@ -61,13 +64,16 @@ namespace jettnet.steamworks.core
             return (managedArray, channel);
         }
 
-        public static void InitRelay()
+        public static void InitRelay(bool usingSteamGameServices)
         {
-#if UNITY_SERVER
-            SteamGameServerNetworkingUtils.InitRelayNetworkAccess();
-#else
-            SteamNetworkingUtils.InitRelayNetworkAccess();
-#endif
+            if (usingSteamGameServices)
+            {
+                SteamGameServerNetworkingUtils.InitRelayNetworkAccess();
+            }
+            else
+            {
+                SteamNetworkingUtils.InitRelayNetworkAccess();
+            }
         }
     }
 }

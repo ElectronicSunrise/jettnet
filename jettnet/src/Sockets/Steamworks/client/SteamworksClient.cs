@@ -19,7 +19,7 @@ namespace jettnet.steamworks.core
 
         public SteamworksClient(jettnet.core.Logger logger)
         {
-            SteamworksUtils.InitRelay();
+            SteamworksUtils.InitRelay(false);
 
             this.logger = logger;
 
@@ -149,7 +149,7 @@ namespace jettnet.steamworks.core
 
         public void Send(byte[] data, int channelID)
         {
-            EResult sendResult = SteamworksUtils.SendData(hostConnection, data, channelID);
+            EResult sendResult = SteamworksUtils.SendData(hostConnection, data, channelID, false);
 
             if (sendResult == EResult.k_EResultNoConnection || sendResult == EResult.k_EResultInvalidParam)
             {

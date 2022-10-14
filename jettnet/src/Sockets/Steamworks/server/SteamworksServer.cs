@@ -25,13 +25,15 @@ namespace jettnet.steamworks.core
         public Dictionary<int, SteamworksConnection> Connections { get; private set; }
         public bool AcceptingConnections { get; set; } = true;
         public int MaxConnections { get; private set; }
+        public bool UsingSteamGameServices { get; private set; }
 
-        public SteamworksServer(jettnet.core.Logger logger, int maxConnections)
+        public SteamworksServer(jettnet.core.Logger logger, int maxConnections, bool usingSteamGameServices)
         {
-            SteamworksUtils.InitRelay();
+            SteamworksUtils.InitRelay(UsingSteamGameServices);
 
             this.logger = logger;
             this.MaxConnections = maxConnections;
+            this.UsingSteamGameServices = usingSteamGameServices;
 
             Connections = new Dictionary<int, SteamworksConnection>();
 
@@ -44,11 +46,14 @@ namespace jettnet.steamworks.core
 
             logger.Log($"Hosting with CSteamID: {SteamUser.GetSteamID().m_SteamID.ToString()}", jettnet.core.LogLevel.Info);
 
-#if UNITY_SERVER
-            listenSocket = SteamGameServerNetworkingSockets.CreateListenSocketP2P(0, options.Length, options);
-#else
-            listenSocket = SteamNetworkingSockets.CreateListenSocketP2P(0, options.Length, options);
-#endif
+            if (UsingSteamGameServices)
+            {
+                listenSocket = SteamGameServerNetworkingSockets.CreateListenSocketP2P(0, options.Length, options);
+            }
+            else
+            {
+                listenSocket = SteamNetworkingSockets.CreateListenSocketP2P(0, options.Length, options);
+            }
         }
 
         private void OnConnectionReceivedInternal(SteamNetConnectionStatusChangedCallback_t connectionStatus)
@@ -92,11 +97,14 @@ namespace jettnet.steamworks.core
 
             foreach (KeyValuePair<int, SteamworksConnection> connection in Connections)
             {
-#if UNITY_SERVER
-                SteamGameServerNetworkingSockets.FlushMessagesOnConnection(connection.Value.SteamConnectionHandle);
-#else
-                SteamNetworkingSockets.FlushMessagesOnConnection(connection.Value.SteamConnectionHandle);
-#endif
+                if (UsingSteamGameServices)
+                {
+                    SteamGameServerNetworkingSockets.FlushMessagesOnConnection(connection.Value.SteamConnectionHandle);
+                }
+                else
+                {
+                    SteamNetworkingSockets.FlushMessagesOnConnection(connection.Value.SteamConnectionHandle);
+                }
             }
         }
 
@@ -169,11 +177,14 @@ namespace jettnet.steamworks.core
 
             EResult acceptResult;
 
-#if UNITY_SERVER
-            acceptResult = SteamGameServerNetworkingSockets.AcceptConnection(clientConnection);
-#else
-            acceptResult = SteamNetworkingSockets.AcceptConnection(clientConnection);
-#endif
+            if (UsingSteamGameServices)
+            {
+                acceptResult = SteamGameServerNetworkingSockets.AcceptConnection(clientConnection);
+            }
+            else
+            {
+                acceptResult = SteamNetworkingSockets.AcceptConnection(clientConnection);
+            }
 
             if (acceptResult == EResult.k_EResultOK)
             {
@@ -188,11 +199,14 @@ namespace jettnet.steamworks.core
         }
 
         private void CloseConnection(HSteamNetConnection connection, string disconnectReason) {
-#if UNITY_SERVER
-            SteamGameServerNetworkingSockets.CloseConnection(connection, 0, disconnectReason, false);
-#else
-            SteamNetworkingSockets.CloseConnection(connection, 0, disconnectReason, false);
-#endif
+            if (UsingSteamGameServices)
+            {
+                SteamGameServerNetworkingSockets.CloseConnection(connection, 0, disconnectReason, false);
+            }
+            else
+            {
+                SteamNetworkingSockets.CloseConnection(connection, 0, disconnectReason, false);
+            }
 
             logger.Log("Connection closed.", jettnet.core.LogLevel.Info);
 
@@ -228,11 +242,14 @@ namespace jettnet.steamworks.core
         {
             //CloseListenSocket automatically ungracefully disconnects all connections.
 
-#if UNITY_SERVER
-            SteamGameServerNetworkingSockets.CloseListenSocket(listenSocket);
-#else
-            SteamNetworkingSockets.CloseListenSocket(listenSocket);
-#endif
+            if (UsingSteamGameServices)
+            {
+                SteamGameServerNetworkingSockets.CloseListenSocket(listenSocket);
+            }
+            else
+            {
+                SteamNetworkingSockets.CloseListenSocket(listenSocket);
+            }
 
             Connections.Clear();
             nextConnectionID = 0;
@@ -247,7 +264,7 @@ namespace jettnet.steamworks.core
 
             SteamworksConnection clientConnection = Connections[connectionID];
 
-            EResult dataSendResult = SteamworksUtils.SendData(clientConnection.SteamConnectionHandle, data, channelID);
+            EResult dataSendResult = SteamworksUtils.SendData(clientConnection.SteamConnectionHandle, data, channelID, UsingSteamGameServices);
 
             if (dataSendResult == EResult.k_EResultNoConnection || dataSendResult == EResult.k_EResultInvalidParam)
             {

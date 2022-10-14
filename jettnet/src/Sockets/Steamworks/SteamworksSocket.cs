@@ -14,11 +14,19 @@ namespace jettnet.sockets
 
         public SteamworksServer ActiveServer => steamworksServer;
         public SteamworksClient ActiveClient => steamworksClient;
+        public bool UsingSteamGameServices { get; private set; }
 
-        public SteamworksSocket(core.Logger logger, int maxConnections=4) : base(logger)
+        /// <summary>
+        /// Creates a new Steamworks Socket
+        /// </summary>
+        /// <param name="logger">JettNet logger</param>
+        /// <param name="maxConnections">Maximum amount of connections for this socket. Unused when creating clients</param>
+        /// <param name="usingSteamGameServices">Determines if we are using Steam Game Services</param>
+        public SteamworksSocket(core.Logger logger, int maxConnections, bool usingSteamGameServices=false) : base(logger)
         {
             this.logger = logger;
             this.MaxConnections = maxConnections;
+            this.UsingSteamGameServices = usingSteamGameServices;
         }
 
         public override bool AddressExists(string address)
@@ -112,7 +120,7 @@ namespace jettnet.sockets
 
             logger.Log("Starting server.", core.LogLevel.Info);
 
-            steamworksServer = new SteamworksServer(logger, MaxConnections);
+            steamworksServer = new SteamworksServer(logger, MaxConnections, UsingSteamGameServices);
 
             steamworksServer.Host();
 
