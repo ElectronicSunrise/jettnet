@@ -1,9 +1,5 @@
 using System;
 using jettnet.steamworks.core;
-using static UnityEngine.Rendering.PostProcessing.HistogramMonitor;
-using Telepathy2k;
-using UnityEditor.MemoryProfiler;
-using System.Diagnostics;
 
 namespace jettnet.sockets
 {

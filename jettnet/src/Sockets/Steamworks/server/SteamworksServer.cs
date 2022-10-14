@@ -234,6 +234,9 @@ namespace jettnet.steamworks.core
             SteamNetworkingSockets.CloseListenSocket(listenSocket);
 #endif
 
+            Connections.Clear();
+            nextConnectionID = 0;
+
             Dispose();
         }
 
