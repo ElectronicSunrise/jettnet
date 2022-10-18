@@ -1,3 +1,6 @@
 [submodule "jettnet.core"]
 	path = jettnet.core
 	url = https://www.github.com/electronicsunrise/jettnet.core
+[submodule "jettnet/src/Sockets/Steamworks/dependency"]
+	path = jettnet/src/Sockets/Steamworks/dependency
+	url = https://github.com/rlabrecque/Steamworks.NET
